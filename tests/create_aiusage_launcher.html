@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AI Usage Launcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f4ff;
+  --surface:#ffffff;
+  --surface2:#f8fafc;
+  --border:#e2e8f0;
+  --text:#1a1a2e;
+  --muted:#5a6080;
+  --dim:#9098b8;
+  --font:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono','Courier New',monospace;
+  /* M365 accent — microsoft blue */
+  --m365:#0078d4;
+  --m365-light:#cce4f6;
+  --m365-glow:rgba(0,120,212,.25);
+  /* OpenArena accent — vivid violet */
+  --oa:#7c3aed;
+  --oa-light:#ede9fe;
+  --oa-glow:rgba(124,58,237,.25);
+  /* neutral accent */
+  --green:#22c55e;
+  --amber:#f59e0b;
+  --red:#ef4444;
+  --r:8px;--rl:12px;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;padding:2rem 1.5rem 5rem}
+.wrap{max-width:780px;margin:0 auto;position:relative;z-index:1}
+
+/* ── ambient glow ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 600px 400px at 15% 10%, rgba(0,120,212,.06) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 350px at 85% 85%, rgba(124,58,237,.05) 0%, transparent 70%);
+}
+
+/* ── header ── */
+.hdr{margin-bottom:1.75rem;padding:1.5rem 1.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);position:relative;overflow:hidden}
+.hdr::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--m365),var(--oa))}
+.hdr-inner{display:flex;align-items:center;gap:1rem}
+.hdr-icon{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--m365),var(--oa));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hdr-icon svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.hdr h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em;color:#1a1a2e}
+.hdr p{font-size:.78rem;color:var(--muted);margin-top:3px}
+
+/* ── status bars ── */
+.status-bar{display:flex;align-items:center;gap:8px;padding:.55rem 1rem;border-radius:var(--r);font-size:.76rem;font-weight:500;margin-bottom:.6rem;border:1px solid transparent;transition:all .3s}
+.status-bar.checking{background:#f8fafc;border-color:var(--border);color:var(--muted)}
+.status-bar.online{background:#f0fdf4;border-color:#86efac;color:#166534}
+.status-bar.offline{background:#fff5f5;border-color:#fca5a5;color:#dc2626}
+.status-bar.warning{background:#fffbeb;border-color:#fcd34d;color:#92400e}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-ok{background:#22c55e}.dot-err{background:#ef4444}.dot-wait{background:#94a3b8}.dot-warn{background:#f59e0b}
+.status-bar-actions{margin-left:auto;display:flex;gap:.5rem}
+
+/* ── cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:1.4rem;margin-bottom:.9rem}
+.card-hdr{display:flex;align-items:center;gap:9px;margin-bottom:1.1rem}
+.step-pill{width:22px;height:22px;border-radius:50%;font-size:.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+.sp1{background:linear-gradient(135deg,#0078d4,#106ebe)}
+.sp2{background:linear-gradient(135deg,#7c3aed,#6d28d9)}
+.sp3{background:linear-gradient(135deg,#059669,#047857)}
+.card-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* ── tool selector ── */
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.5rem}
+.tool-tile{position:relative;background:#ffffff;border:2px solid var(--border);border-radius:var(--rl);padding:1.1rem 1rem;cursor:pointer;user-select:none;transition:all .18s;display:block}
+.tool-tile:hover{transform:translateY(-2px)}
+.tool-tile input{position:absolute;opacity:0;width:0;height:0}
+.tool-tile.sel-m365{border-color:var(--m365);background:rgba(0,120,212,.08);box-shadow:0 0 0 3px var(--m365-glow)}
+.tool-tile.sel-oa{border-color:var(--oa);background:rgba(124,58,237,.08);box-shadow:0 0 0 3px var(--oa-glow)}
+.tool-chk{position:absolute;top:9px;right:9px;width:18px;height:18px;border-radius:5px;border:2px solid #cbd5e1;background:#fff;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.tool-tile.sel-m365 .tool-chk{background:var(--m365);border-color:var(--m365)}
+.tool-tile.sel-oa .tool-chk{background:var(--oa);border-color:var(--oa)}
+.tool-chk svg{width:10px;height:10px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;opacity:0;transition:opacity .12s}
+.tool-tile.sel-m365 .tool-chk svg,.tool-tile.sel-oa .tool-chk svg{opacity:1}
+.tool-logo{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:.65rem}
+.tool-logo-m365{background:rgba(0,120,212,.15)}
+.tool-logo-oa{background:rgba(124,58,237,.15)}
+.tool-logo svg{width:20px;height:20px}
+.tool-name{font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:2px;padding-right:22px}
+.tool-desc{font-size:.71rem;color:var(--muted);line-height:1.5}
+.tool-tag{display:inline-block;font-size:.62rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:20px;margin-top:6px}
+.tag-m365{background:#dbeafe;color:#1d4ed8}
+.tag-oa{background:#ede9fe;color:#6d28d9}
+
+/* ── count slider ── */
+.count-row{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.count-pills{display:flex;gap:.5rem;flex-wrap:wrap}
+.count-pill{background:#fff;border:2px solid #e2e8f0;border-radius:20px;color:var(--muted);font-family:var(--mono);font-size:.82rem;font-weight:500;padding:.35rem .9rem;cursor:pointer;transition:all .15s;user-select:none}
+.count-pill:hover{border-color:#1a1a2e;color:#1a1a2e}
+.count-pill.sel{background:#f0fdf4;border-color:#22c55e;color:#166534}
+.count-desc{font-size:.73rem;color:var(--muted)}
+
+/* ── command box ── */
+.cmd-box{background:#1e1b4b;border:1px solid #c7d2fe;border-radius:var(--r);padding:.9rem 1.1rem;margin-top:.75rem;font-family:var(--mono);font-size:.78rem;line-height:1.8;word-break:break-all;min-height:48px}
+.cmd-ph{color:var(--dim);font-style:italic}
+.t-py{color:#60a5fa}.t-flag{color:#86efac}.t-val{color:#fbbf24}.t-path{color:#e879f9}.t-exe{color:#f472b6}
+
+/* ── run button ── */
+.btn-run{background:linear-gradient(135deg,var(--m365),var(--oa));border:none;border-radius:var(--r);color:#fff;font-family:var(--font);font-size:.9rem;font-weight:700;padding:.7rem 1.8rem;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .18s;min-width:200px;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.btn-run:hover{filter:brightness(1.1);box-shadow:0 6px 28px rgba(0,0,0,.5);transform:translateY(-1px)}
+.btn-run:active{transform:scale(.97)}
+.btn-run:disabled{opacity:.3;cursor:not-allowed;box-shadow:none;transform:none;filter:none}
+.btn-run svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
+.btn-copy-cmd{background:#fff;border:1px solid #e2e8f0;border-radius:6px;color:var(--muted);font-family:var(--font);font-size:.72rem;padding:.28rem .65rem;cursor:pointer;transition:all .15s}
+.btn-copy-cmd:hover{border-color:#1a1a2e;color:#1a1a2e}
+.btn-copy-cmd.ok{border-color:#22c55e;color:#166534}
+.actions{display:flex;gap:.75rem;align-items:center;margin-top:1.25rem;flex-wrap:wrap}
+.btn-sso-sm{background:transparent;border:1px solid var(--amber);border-radius:6px;color:var(--amber);font-family:var(--font);font-size:.73rem;font-weight:600;padding:.3rem .8rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-sso-sm:hover{background:rgba(245,158,11,.12)}
+.btn-sso-sm:disabled{opacity:.4;cursor:not-allowed}
+.btn-invalidate{background:#fff;border:1px solid #e2e8f0;border-radius:6px;color:var(--muted);font-family:var(--font);font-size:.72rem;padding:.28rem .65rem;cursor:pointer;transition:all .15s}
+.btn-invalidate:hover{border-color:var(--red);color:#fca5a5}
+
+/* ── console ── */
+.console-wrap{background:#0f172a;border:1px solid #334155;border-radius:var(--rl);overflow:hidden;margin-bottom:.9rem}
+.console-hdr{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;background:#1e293b;border-bottom:1px solid #334155}
+.console-title{font-family:var(--mono);font-size:.71rem;color:var(--muted)}
+.console-body{padding:.8rem 1rem;max-height:340px;overflow-y:auto;font-family:var(--mono);font-size:.76rem;line-height:1.8}
+.console-body:empty::before{content:'Waiting for output...';color:var(--dim);font-style:italic}
+.log-line{color:#94a3b8;white-space:pre-wrap;word-break:break-all}
+.log-line.err{color:#f87171}
+.log-line.meta{color:var(--amber);font-weight:500}
+.log-line.done-ok{color:var(--green);font-weight:600}
+.log-line.done-err{color:#f87171;font-weight:600}
+
+/* ── prereq section ── */
+.pre-block{background:#1e1b4b;border:1px solid #c7d2fe;border-radius:var(--r);padding:.65rem 1rem;margin:.4rem 0 .75rem;font-family:var(--mono);font-size:.75rem;color:#6d28d9;word-break:break-all;line-height:1.7}
+.section-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+
+/* ── note ── */
+.note{background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--r);padding:.55rem .9rem;font-size:.74rem;color:#92400e;margin-top:.6rem;line-height:1.6}
+.note strong{color:#b45309}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-inner">
+      <div class="hdr-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <h1>AI Usage Launcher</h1>
+        <p>Thomson Reuters · M365 Copilot &amp; OpenArena · Automated prompt runner</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Server status -->
+  <div class="status-bar checking" id="server-bar">
+    <div class="dot dot-wait" id="server-dot"></div>
+    <span id="server-msg">Checking launcher server...</span>
+  </div>
+
+  <!-- OpenArena SSO status -->
+  <div class="status-bar checking" id="sso-bar" style="justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+      <div class="dot dot-wait" id="sso-dot"></div>
+      <span id="sso-msg" style="flex:1">Checking OpenArena session...</span>
+    </div>
+    <div class="status-bar-actions">
+      <button class="btn-sso-sm" id="sso-btn" onclick="doSSO()" style="display:none">Run SSO Setup</button>
+      <button class="btn-invalidate" onclick="doInvalidate()">Force Re-auth</button>
+    </div>
+  </div>
+
+  <!-- Console -->
+  <div class="console-wrap" id="console-wrap" style="display:none">
+    <div class="console-hdr">
+      <span class="console-title" id="console-title">Output</span>
+      <button class="btn-copy-cmd" onclick="clearConsole()">Clear</button>
+    </div>
+    <div class="console-body" id="console-body"></div>
+  </div>
+
+  <!-- Step 1 — Tool -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="step-pill sp1">1</div>
+      <div class="card-label">Select AI tool</div>
+    </div>
+    <div class="tool-grid" id="tool-grid">
+
+      <label class="tool-tile" id="tile-m365">
+        <input type="checkbox" id="chk-m365" onchange="onToolChange()"/>
+        <div class="tool-logo tool-logo-m365">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="2" width="9" height="9" rx="1.5" fill="#0078d4"/>
+            <rect x="13" y="2" width="9" height="9" rx="1.5" fill="#0078d4" opacity=".7"/>
+            <rect x="2" y="13" width="9" height="9" rx="1.5" fill="#0078d4" opacity=".7"/>
+            <rect x="13" y="13" width="9" height="9" rx="1.5" fill="#0078d4" opacity=".5"/>
+          </svg>
+        </div>
+        <div class="tool-name">M365 Copilot</div>
+        <div class="tool-desc">Microsoft 365 AI chat — uses your Chrome profile cookies, no login required</div>
+        <span class="tool-tag tag-m365">aims365.py</span>
+        <div class="tool-chk"><svg viewBox="0 0 12 9"><polyline points="1 4 4.5 7.5 11 1"/></svg></div>
+      </label>
+
+      <label class="tool-tile" id="tile-oa">
+        <input type="checkbox" id="chk-oa" onchange="onToolChange()"/>
+        <div class="tool-logo tool-logo-oa">
+          <svg viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="#7c3aed" stroke-width="1.5"/>
+            <path d="M8 12h8M12 8v8" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="3" fill="#7c3aed" opacity=".4"/>
+          </svg>
+        </div>
+        <div class="tool-name">OpenArena</div>
+        <div class="tool-desc">TR AI Platform — SSO login via PingID, session saved for 8 hours</div>
+        <span class="tool-tag tag-oa">aiopenarena.py</span>
+        <div class="tool-chk"><svg viewBox="0 0 12 9"><polyline points="1 4 4.5 7.5 11 1"/></svg></div>
+      </label>
+
+    </div>
+    <div class="note" id="oa-note" style="display:none">
+      ⚠ <strong>OpenArena</strong> requires SSO login (PingID MFA). Run SSO Setup once — session is reused for 8 hours.
+    </div>
+  </div>
+
+  <!-- Step 2 — Count -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="step-pill sp2">2</div>
+      <div class="card-label">Number of prompts</div>
+    </div>
+    <div class="count-row">
+      <div class="count-pills" id="count-pills"></div>
+      <div class="count-desc" id="count-desc"></div>
+    </div>
+  </div>
+
+  <!-- Step 3 — Run -->
+  <div class="card">
+    <div class="card-hdr" style="justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div class="step-pill sp3">3</div>
+        <div class="card-label">Run</div>
+      </div>
+      <button class="btn-copy-cmd" id="copy-btn" onclick="copyCmd()">Copy command</button>
+    </div>
+    <div class="cmd-box" id="cmd-box">
+      <span class="cmd-ph">← select a tool and prompt count to generate command</span>
+    </div>
+    <div class="actions">
+      <button class="btn-run" id="run-btn" onclick="doRun()" disabled>
+        <svg id="run-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span id="run-label">Run Prompts</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Prerequisites -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="step-pill" style="background:#e2e8f0;color:#64748b;font-size:.6rem">i</div>
+      <div class="card-label">Setup &amp; reference</div>
+    </div>
+    <div class="section-label">One-time install (run from C:\playwright_servicenow)</div>
+    <div class="pre-block">c:/playwright_servicenow/.venv/Scripts/python.exe -m pip install playwright python-dotenv
+c:/playwright_servicenow/.venv/Scripts/python.exe -m playwright install chromium
+c:/playwright_servicenow/.venv/Scripts/python.exe -m playwright install chrome</div>
+    <div class="section-label" style="margin-top:.75rem">.env file (C:\playwright_servicenow\.env)</div>
+    <div class="pre-block">SSO_USERNAME=6106377
+SSO_PASSWORD=YourSSOPassword
+SSO_URL=https://sso.thomsonreuters.com/as/authorization.oauth2
+OPENARENA_URL=https://dataandanalytics.int.thomsonreuters.com/ai-platform/...</div>
+    <div style="font-size:.73rem;color:#5a6080;margin-top:.75rem;line-height:1.7">
+      M365 Copilot uses your Chrome profile — no login needed.<br/>
+      OpenArena requires SSO + PingID on first run; session is reused for 8 hours from <span style="font-family:var(--mono);color:#6d28d9">auth_openarena.json</span>.
+    </div>
+  </div>
+
+</div>
+<script>
+const SERVER = 'http://localhost:3131';
+const VENV   = 'c:/playwright_servicenow/.venv/Scripts/python.exe';
+const TESTS  = 'tests/aiusage';
+
+// Tools config
+const TOOLS = {
+  m365: { script: `${TESTS}/aims365.py`,    sso: false, label: 'M365 Copilot'  },
+  oa:   { script: `${TESTS}/aiopenarena.py`, sso: true,  label: 'OpenArena'    },
+};
+
+// Count options: 5 to 20 in multiples of 5
+const COUNTS = [5, 10, 15, 20];
+
+let selectedTools = new Set();
+let selectedCount = 10; // default
+let rawCmd = '';
+let serverOnline = false;
+let ssoOk = null;
+let isRunning = false;
+
+// ── Build count pills ──────────────────────────────────────────────────────
+function buildCountPills() {
+  const container = document.getElementById('count-pills');
+  container.innerHTML = COUNTS.map(n =>
+    `<div class="count-pill ${n === selectedCount ? 'sel' : ''}" onclick="selectCount(${n})">${n}</div>`
+  ).join('');
+  updateCountDesc();
+}
+
+function selectCount(n) {
+  selectedCount = n;
+  buildCountPills();
+  rebuild();
+}
+
+function updateCountDesc() {
+  const d = document.getElementById('count-desc');
+  d.textContent = `${selectedCount} prompts will be randomly selected from the pool and sent one by one`;
+}
+
+// ── Tool selection ─────────────────────────────────────────────────────────
+function onToolChange() {
+  selectedTools = new Set();
+  if (document.getElementById('chk-m365').checked) selectedTools.add('m365');
+  if (document.getElementById('chk-oa').checked)   selectedTools.add('oa');
+
+  // Update tile visual state
+  document.getElementById('tile-m365').className = 'tool-tile' + (selectedTools.has('m365') ? ' sel-m365' : '');
+  document.getElementById('tile-oa').className   = 'tool-tile' + (selectedTools.has('oa')   ? ' sel-oa'   : '');
+
+  // Show OpenArena SSO note
+  document.getElementById('oa-note').style.display = selectedTools.has('oa') ? 'block' : 'none';
+
+  rebuild();
+}
+
+// ── Rebuild command preview ────────────────────────────────────────────────
+function rebuild() {
+  const box = document.getElementById('cmd-box');
+
+  if (selectedTools.size === 0) {
+    box.innerHTML = '<span class="cmd-ph">← select a tool and prompt count to generate command</span>';
+    rawCmd = '';
+    refreshRunBtn();
+    return;
+  }
+
+  const lines = [...selectedTools].map(id => {
+    const t = TOOLS[id];
+    return `<span class="t-py">${VENV}</span> <span class="t-path">${t.script}</span> <span class="t-flag">--count</span> <span class="t-val">${selectedCount}</span>`;
+  });
+
+  box.innerHTML = lines.join('<br/>');
+
+  rawCmd = [...selectedTools].map(id =>
+    `${VENV} ${TOOLS[id].script} --count ${selectedCount}`
+  ).join('\r\n');
+
+  refreshRunBtn();
+}
+
+function refreshRunBtn() {
+  const btn  = document.getElementById('run-btn');
+  const lbl  = document.getElementById('run-label');
+  const ico  = document.getElementById('run-icon');
+
+  // Block only if OA is selected and SSO is confirmed missing
+  const oaSelected   = selectedTools.has('oa');
+  const ssoBlocking  = oaSelected && ssoOk === false;
+  const ready        = rawCmd && serverOnline && !ssoBlocking && !isRunning;
+
+  btn.disabled = !ready;
+  if (!serverOnline)    btn.title = 'Start the launcher server first';
+  else if (ssoBlocking) btn.title = 'OpenArena requires SSO — click "Run SSO Setup" above';
+  else if (!rawCmd)     btn.title = 'Select a tool and prompt count';
+  else                  btn.title = '';
+
+  if (isRunning) {
+    lbl.textContent = 'Running...';
+    ico.innerHTML   = '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83"/>';
+  } else {
+    lbl.textContent = selectedTools.size > 1 ? 'Run Both Tools' : 'Run Prompts';
+    ico.innerHTML   = '<polygon points="5 3 19 12 5 21 5 3"/>';
+  }
+}
+
+// ── Server + SSO status ────────────────────────────────────────────────────
+function setServerBar(state, msg) {
+  const bar = document.getElementById('server-bar');
+  const dot = document.getElementById('server-dot');
+  bar.className = 'status-bar ' + state;
+  dot.className = 'dot ' + (state === 'online' ? 'dot-ok' : state === 'offline' ? 'dot-err' : 'dot-wait');
+  document.getElementById('server-msg').textContent = msg;
+  serverOnline = (state === 'online');
+  refreshRunBtn();
+}
+
+function setSsoBar(state, msg, showBtn) {
+  const bar = document.getElementById('sso-bar');
+  const dot = document.getElementById('sso-dot');
+  bar.className = 'status-bar ' + state;
+  dot.className = 'dot ' + (state === 'online' ? 'dot-ok' : state === 'offline' ? 'dot-err' : state === 'warning' ? 'dot-warn' : 'dot-wait');
+  document.getElementById('sso-msg').textContent = msg;
+  document.getElementById('sso-btn').style.display = showBtn ? 'inline-block' : 'none';
+  ssoOk = (state === 'online' || state === 'warning') ? true : state === 'offline' ? false : null;
+  refreshRunBtn();
+}
+
+async function checkServer() {
+  try {
+    const r = await fetch(SERVER + '/status', { signal: AbortSignal.timeout(2000) });
+    const d = await r.json();
+    setServerBar('online', `Server is running — ${d.projectDir}`);
+    checkSSO();
+    isRunning = d.running;
+    refreshRunBtn();
+  } catch {
+    setServerBar('offline', 'Server not running — double-click start-cre-launcher.bat or start-tdr-launcher.bat');
+    setSsoBar('checking', 'SSO status unknown — start the server first', false);
+  }
+}
+
+async function checkSSO() {
+  try {
+    const r = await fetch(SERVER + '/check-auth-oa', { signal: AbortSignal.timeout(2000) });
+    const d = await r.json();
+    if (!d.exists) {
+      setSsoBar('offline', 'OpenArena session not found — click "Run SSO Setup" before running OpenArena prompts', true);
+    } else if (d.ageMins > 480) {
+      setSsoBar('warning', `OpenArena session is ${Math.floor(d.ageMins/60)}h ${d.ageMins%60}m old — consider refreshing`, true);
+    } else {
+      const left = 480 - d.ageMins;
+      setSsoBar('online', `OpenArena session active — expires in ~${Math.floor(left/60)}h ${left%60}m`, false);
+    }
+  } catch {
+    setSsoBar('checking', 'Could not check OpenArena session status', false);
+  }
+}
+
+setInterval(checkServer, 5000);
+setInterval(async () => {
+  if (!serverOnline) return;
+  try {
+    const r = await fetch(SERVER + '/sso-expired-status', { signal: AbortSignal.timeout(1000) });
+    const d = await r.json();
+    if (d.expired) setSsoBar('offline', '⚠ OpenArena session expired — click "Run SSO Setup" to re-authenticate', true);
+  } catch {}
+}, 3000);
+checkServer();
+
+// ── SSO ────────────────────────────────────────────────────────────────────
+async function doSSO() {
+  if (!serverOnline) { alert('Start the launcher server first.'); return; }
+  const btn = document.getElementById('sso-btn');
+  btn.disabled = true; btn.textContent = 'Setting up...';
+  isRunning = true; refreshRunBtn();
+  showConsole('OpenArena SSO Setup');
+
+  try {
+    const res = await fetch(SERVER + '/sso-oa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    if (!res.ok) { appendLog('Server error: ' + res.status, 'err'); isRunning = false; btn.disabled = false; btn.textContent = 'Run SSO Setup'; refreshRunBtn(); return; }
+    await streamSSE(res, () => { isRunning = false; btn.disabled = false; btn.textContent = 'Run SSO Setup'; checkSSO(); refreshRunBtn(); });
+  } catch(e) {
+    appendLog('Connection error: ' + e.message, 'err');
+    isRunning = false; btn.disabled = false; btn.textContent = 'Run SSO Setup'; refreshRunBtn();
+  }
+}
+
+async function doInvalidate() {
+  if (!serverOnline) { alert('Start the launcher server first.'); return; }
+  if (!confirm('Delete auth_openarena.json and require a fresh OpenArena SSO login?\n\nProceed?')) return;
+  try {
+    await fetch(SERVER + '/invalidate-sso-oa', { method: 'POST' });
+    setSsoBar('offline', '⚠ Session invalidated — click "Run SSO Setup" to re-authenticate', true);
+  } catch(e) { alert('Could not reach server: ' + e.message); }
+}
+
+// ── Run ────────────────────────────────────────────────────────────────────
+async function doRun() {
+  if (!rawCmd || !serverOnline || isRunning) return;
+  isRunning = true; refreshRunBtn();
+
+  const toolNames = [...selectedTools].map(id => TOOLS[id].label).join(' + ');
+  showConsole(`Running — ${toolNames} · ${selectedCount} prompts`);
+
+  try {
+    const res = await fetch(SERVER + '/run-ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tools: [...selectedTools], count: selectedCount }),
+    });
+    if (!res.ok) { const e = await res.json(); appendLog('ERROR: ' + e.error, 'err'); isRunning = false; refreshRunBtn(); return; }
+    await streamSSE(res, () => { isRunning = false; refreshRunBtn(); setTimeout(checkSSO, 1500); });
+  } catch(e) {
+    appendLog('Connection error: ' + e.message, 'err');
+    isRunning = false; refreshRunBtn();
+  }
+}
+
+async function streamSSE(res, onFinish) {
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const parts = buf.split('\n\n'); buf = parts.pop();
+    for (const part of parts) {
+      let evtType = '', evtData = '';
+      for (const l of part.split('\n')) {
+        if (l.startsWith('event:')) evtType = l.slice(6).trim();
+        if (l.startsWith('data:'))  evtData = l.slice(5).trim();
+      }
+      if (!evtData) continue;
+      let d; try { d = JSON.parse(evtData); } catch { continue; }
+      if      (evtType === 'start') appendLog(d.message, 'meta');
+      else if (evtType === 'log')   appendLog(d.text, d.stderr ? 'err' : '');
+      else if (evtType === 'done')  { appendLog('', null); appendLog(d.message, d.success ? 'done-ok' : 'done-err'); onFinish(); }
+      else if (evtType === 'error') { appendLog('ERROR: ' + d.message, 'err'); onFinish(); }
+    }
+  }
+}
+
+function showConsole(title) {
+  const w = document.getElementById('console-wrap');
+  w.style.display = 'block';
+  document.getElementById('console-title').textContent = title;
+  clearConsole();
+  w.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clearConsole() { document.getElementById('console-body').innerHTML = ''; }
+
+function appendLog(text, cls) {
+  const body = document.getElementById('console-body');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (cls ? ' ' + cls : '');
+  line.textContent = text;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+}
+
+function copyCmd() {
+  if (!rawCmd) return;
+  navigator.clipboard.writeText(rawCmd).then(() => {
+    const b = document.getElementById('copy-btn');
+    const orig = b.textContent;
+    b.textContent = '✓ Copied!'; b.classList.add('ok');
+    setTimeout(() => { b.textContent = orig; b.classList.remove('ok'); }, 1800);
+  });
+}
+
+// Init
+buildCountPills();
+rebuild();
+</script>
+</body>
+</html>

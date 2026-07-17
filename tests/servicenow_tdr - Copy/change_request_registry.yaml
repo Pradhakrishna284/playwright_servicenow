@@ -1,0 +1,125 @@
+2026.05.00:
+  CHG0165333:
+    crNumber: CHG0165333
+    crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0165333
+    timestamp: '2026-05-12T09:31:44.704Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.05.00
+    shortDescription: Tax Data Repository | 2026.05.00 | PROD Generate production dump files for data refresh
+  CHG0196795:
+    crNumber: CHG0196795
+    crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0196795
+    timestamp: '2026-06-17T00:00:00.000Z'
+    configName: QA
+    releaseVersion: 2026.05.00
+    shortDescription: Tax Data Repository | 2026.05.00 | QA Data Refresh
+2026.06.00:
+  CHG0272099:
+    crNumber: CHG0272099
+    crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0272099
+    timestamp: '2026-06-17T12:22:52.210Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.06.00
+  CHG0272134:
+    crNumber: CHG0272134
+    crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0272134
+    timestamp: '2026-06-17T12:53:28.245Z'
+    configName: UAT
+    releaseVersion: 2026.06.00
+2026.07.00:
+  CHG0284443:
+    crNumber: CHG0284443
+    crUrl: >-
+      https://trenterprise.service-now.com/change_request.do?sys_id=9aa0b794eb0283d0726ef36ffdc0cdc6&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T11:29:02.956Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.07.00
+    crSysId: 9aa0b794eb0283d0726ef36ffdc0cdc6
+  CHG0284512:
+    crNumber: CHG0284512
+    crUrl: >-
+      https://trenterprise.service-now.com/change_request.do?sys_id=0f198864ebca83d0726ef36ffdc0cd5d&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T13:15:48.879Z'
+    configName: UAT
+    releaseVersion: 2026.07.00
+    crSysId: 0f198864ebca83d0726ef36ffdc0cd5d
+  CHG0284568:
+    crNumber: CHG0284568
+    crUrl: >-
+      https://trenterprise.service-now.com/change_request.do?sys_id=c51990202f0ec3d08de0208fcea4e363&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T14:25:32.152Z'
+    configName: QA
+    releaseVersion: 2026.07.00
+    crSysId: c51990202f0ec3d08de0208fcea4e363
+  CHG0240486:
+    crNumber: CHG0240486
+    crUrl: >-
+      https://trenterprise.service-now.com/change_request.do?sys_id=38b12c2c3b864354df89168aa4e45af3&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T15:03:35.278Z'
+    configName: QA
+    releaseVersion: 2026.07.00
+    crSysId: 38b12c2c3b864354df89168aa4e45af3
+  CHG0240487:
+    crNumber: CHG0240487
+    crUrl: >-
+      https://trenterprisedev.service-now.com/change_request.do?sys_id=4fe4e8243b0a4354df89168aa4e45a23&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T15:17:29.152Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.07.00
+    crSysId: 4fe4e8243b0a4354df89168aa4e45a23
+  CHG0240489:
+    crNumber: CHG0240489
+    crUrl: >-
+      https://trenterprisedev.service-now.com/change_request.do?sys_id=a62724ac3b4a4354df89168aa4e45ab9&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T15:27:13.250Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.07.00
+    crSysId: a62724ac3b4a4354df89168aa4e45ab9
+  CHG0240490:
+    crNumber: CHG0240490
+    crUrl: >-
+      https://trenterprisedev.service-now.com/change_request.do?sys_id=e66960ac3bca4354df89168aa4e45a4a&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T15:37:05.635Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.07.00
+    crSysId: e66960ac3bca4354df89168aa4e45a4a
+  CHG0240491:
+    crNumber: CHG0240491
+    crUrl: >-
+      https://trenterprisedev.service-now.com/change_request.do?sys_id=95eb60a83b4e4354df89168aa4e45a15&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T15:47:50.718Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.07.00
+    crSysId: 95eb60a83b4e4354df89168aa4e45a15
+  CHG0240492:
+    crNumber: CHG0240492
+    crUrl: >-
+      https://trenterprisedev.service-now.com/change_request.do?sys_id=ffdd64ac3b8e4354df89168aa4e45a5a&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T15:56:31.114Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.07.00
+    crSysId: ffdd64ac3b8e4354df89168aa4e45a5a
+  CHG0240493:
+    crNumber: CHG0240493
+    crUrl: >-
+      https://trenterprisedev.service-now.com/change_request.do?sys_id=fd6fa4ac3bce4354df89168aa4e45a3e&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T16:03:11.205Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.07.00
+    crSysId: fd6fa4ac3bce4354df89168aa4e45a3e
+  CHG0240494:
+    crNumber: CHG0240494
+    crUrl: >-
+      https://trenterprisedev.service-now.com/change_request.do?sys_id=256178603b428354df89168aa4e45adb&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T16:11:56.419Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.07.00
+    crSysId: 256178603b428354df89168aa4e45adb
+  CHG0240497:
+    crNumber: CHG0240497
+    crUrl: >-
+      https://trenterprisedev.service-now.com/change_request.do?sys_id=5783f4a83b828354df89168aa4e45a94&sysparm_record_target=change_request&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DTax%20Data%20Repository%20%7C%202026.07.00%5EORDERBYshort_description
+    timestamp: '2026-07-09T16:21:15.179Z'
+    configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.07.00
+    crSysId: 5783f4a83b828354df89168aa4e45a94

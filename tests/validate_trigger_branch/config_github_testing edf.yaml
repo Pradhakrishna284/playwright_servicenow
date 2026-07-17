@@ -1,0 +1,275 @@
+# =============================================================================
+# GitHub Trigger Branch Verification — CRE / EDF Configuration
+# =============================================================================
+#
+# ── Technology Full Forms ──────────────────────────────────────────────────────
+#  AWS  Amazon Web Services
+#         Public cloud platform by Amazon. Used for AMER and EMEA deployments.
+#
+#  OCI  Oracle Cloud Infrastructure
+#         Public cloud platform by Oracle. Used for AMER (us-ashburn-1) and
+#         MENA (me-abudhabi-1) deployments.
+#
+#  LB   Liquibase
+#         An open-source database schema change management tool. It tracks,
+#         versions, and applies database changes (e.g. creating tables, adding
+#         columns, modifying indexes) in a controlled and repeatable way —
+#         similar to how Git tracks code changes, but for databases.
+#         The Liquibase pipeline applies all database schema migrations
+#         before the application is deployed.
+#
+# ── Region Reference ──────────────────────────────────────────────────────────
+#  AMER  Americas
+#  EMEA  Europe, Middle East and Africa
+#  MENA  Middle East and North Africa
+#
+# ── Cloud Provider & OCI Region Names ─────────────────────────────────────────
+#  AWS  AMER  : standard AWS AMER region
+#  AWS  EMEA  : standard AWS EMEA region
+#  OCI  AMER  : us-ashburn-1   (Ashburn, Virginia — OCI region for AMER)
+#  OCI  MENA  : me-abudhabi-1  (Abu Dhabi          — OCI region for MENA)
+#
+# ── Branch Naming Convention ──────────────────────────────────────────────────
+#  Pattern : trigger/<env>-<region-code>[-lb]
+#
+#  env codes:
+#    sat  = System Acceptance Test
+#    uat  = User Acceptance Test
+#    prd  = Production
+#
+#  region codes:
+#    i    = AMER  — AWS
+#    ii   = EMEA  — AWS
+#    iv   = AMER  — OCI  (us-ashburn-1)
+#    x    = MENA  — OCI  (me-abudhabi-1)
+#
+#  suffix:
+#    -lb      = Liquibase pipeline  (database schema changes)
+#    (none)   = App pipeline        (application code deployment)
+#
+#  NOTE: region-code assignments (i / ii / iv / x) are per-project. Confirm
+#  each project's actual mapping before relying on it — do not assume EDF
+#  reuses CRE's codes verbatim.
+#
+# ── Why Deployment Order Matters ──────────────────────────────────────────────
+#  The Liquibase (-lb) pipeline MUST always run before the App pipeline.
+#  If the App is deployed first, it may reference DB columns/tables that
+#  don't exist yet, causing startup failures. Liquibase-first guarantees
+#  the app starts cleanly against the updated schema.
+#
+# =============================================================================
+
+github:
+  token: "REPLACE_WITH_ROTATED_TOKEN"  # TODO: previous token was exposed — rotate in GitHub, then paste the new one here (or better, load from a secret store / env var instead of committing it)
+
+# -----------------------------------------------------------------------------
+# Projects
+# -----------------------------------------------------------------------------
+# Each project now supports MULTIPLE repositories. Every repo carries its own
+# `environments` block with its own trigger_branch list, since different
+# repos in the same project can have different deployment footprints
+# (e.g. one repo might only deploy to AMER, another to all three regions).
+# -----------------------------------------------------------------------------
+projects:
+
+  CRE:
+    description: "Content Rate Extract"
+    repositories:
+
+      - owner: tr
+        name: a208263_ocre-app-ce-stg-sdm
+        description: "Content Rate Extract — core app"
+        environments:
+
+          # ── System Acceptance Test ─────────────────────────────────────────
+          SAT:
+            description: "System Acceptance Test"
+            trigger_branch:
+              - trigger/sat-lb    # STEP 1 | AWS/OCI | Liquibase deployment (shared)
+              - trigger/sat-i     # STEP 2 | AWS | App deployment | AMER (i)
+              - trigger/sat-iv    # STEP 3 | OCI | App deployment
+
+          # ── User Acceptance Test — EMEA (AWS only) ─────────────────────────
+          UAT_EMEA:
+            description: "User Acceptance Test - EMEA"
+            trigger_branch:
+              - trigger/uat-lb-ii # STEP 1 | AWS | Liquibase deployment | EMEA (ii)
+              - trigger/uat-ii    # STEP 2 | AWS | App deployment | EMEA (ii)
+
+          # ── User Acceptance Test — AMER (AWS + OCI us-ashburn-1) ───────────
+          UAT_AMER:
+            description: "User Acceptance Test - AMER"
+            trigger_branch:
+              - trigger/uat-lb-i  # STEP 1 | AWS | Liquibase deployment | AMER (i)
+              - trigger/uat-i     # STEP 2 | AWS | App deployment | AMER (i)
+              - trigger/uat-iv-lb # STEP 3 | OCI | Liquibase deployment | AMER (iv)
+              - trigger/uat-iv    # STEP 4 | OCI | App deployment | AMER (iv)
+
+          # ── User Acceptance Test — MENA (OCI me-abudhabi-1 only) ───────────
+          UAT_MENA:
+            description: "User Acceptance Test - MENA"
+            trigger_branch:
+              - trigger/uat-x-lb  # STEP 1 | OCI | Liquibase deployment | MENA (x)
+              - trigger/uat-x     # STEP 2 | OCI | App deployment | MENA (x)
+
+          # ── Production — EMEA (AWS only) ───────────────────────────────────
+          PROD_EMEA:
+            description: "Production - EMEA"
+            trigger_branch:
+              - trigger/prd-lb-ii # STEP 1 | AWS | Liquibase deployment | EMEA (ii)
+              - trigger/prd-ii    # STEP 2 | AWS | App deployment | EMEA (ii)
+
+          # ── Production — AMER (AWS + OCI us-ashburn-1) ─────────────────────
+          PROD_AMER:
+            description: "Production - AMER"
+            trigger_branch:
+              - trigger/prd-i-lb  # STEP 1 | AWS | Liquibase deployment | AMER (i)
+              - trigger/prd-i     # STEP 2 | AWS | App deployment | AMER (i)
+              - trigger/prd-iv-lb # STEP 3 | OCI | Liquibase deployment | AMER (iv)
+              - trigger/prd-iv    # STEP 4 | OCI | App deployment | AMER (iv)
+
+          # ── Production — MENA (OCI me-abudhabi-1 only) ─────────────────────
+          PROD_MENA:
+            description: "Production - MENA"
+            trigger_branch:
+              - trigger/prd-x-lb  # STEP 1 | OCI | Liquibase deployment | MENA (x)
+              - trigger/prd-x     # STEP 2 | OCI | App deployment | MENA (x)
+
+  EDF:
+    description: "Enterprise Data Fabric"
+    # ── EDF deployment footprint ───────────────────────────────────────────────
+    # Cloud  : AWS only (no OCI)
+    # Regions: EMEA and AMER only (no MENA)
+    # Envs   : SAT | UAT_EMEA | UAT_AMER | PROD_EMEA | PROD_AMER
+    # Branches: trigger/sat · trigger/uat · trigger/prod
+    #   • The same branch is used for both EMEA and AMER in UAT and PROD —
+    #     there are no region-specific branch suffixes.
+    #   • No Liquibase (-lb) branches — EDF has no separate DB pipeline.
+    # Release version format: YYYY.MM.DD  (e.g. 2026.06.01) — same as CRE.
+    # ───────────────────────────────────────────────────────────────────────────
+    repositories:
+
+      - owner: tr
+        name: a208113_oedf-app-s3-sink
+        description: "EDF — S3 sink app"
+        environments:
+
+          # ── System Acceptance Test ─────────────────────────────────────────
+          SAT:
+            description: "System Acceptance Test"
+            trigger_branch:
+              - trigger/sat       # AWS | SAT deployment
+
+          # ── User Acceptance Test — EMEA (AWS) ─────────────────────────────
+          UAT_EMEA:
+            description: "User Acceptance Test - EMEA"
+            trigger_branch:
+              - trigger/uat       # AWS | UAT deployment | EMEA
+
+          # ── User Acceptance Test — AMER (AWS) ─────────────────────────────
+          UAT_AMER:
+            description: "User Acceptance Test - AMER"
+            trigger_branch:
+              - trigger/uat       # AWS | UAT deployment | AMER
+
+          # ── Production — EMEA (AWS) ────────────────────────────────────────
+          PROD_EMEA:
+            description: "Production - EMEA"
+            trigger_branch:
+              - trigger/prod      # AWS | PROD deployment | EMEA
+
+          # ── Production — AMER (AWS) ────────────────────────────────────────
+          PROD_AMER:
+            description: "Production - AMER"
+            trigger_branch:
+              - trigger/prod      # AWS | PROD deployment | AMER
+
+      - owner: tr
+        name: a208113_oedf-app-s3-source
+        description: "EDF — S3 source app"
+        environments:
+
+          SAT:
+            description: "System Acceptance Test"
+            trigger_branch:
+              - trigger/sat
+
+          UAT_EMEA:
+            description: "User Acceptance Test - EMEA"
+            trigger_branch:
+              - trigger/uat
+
+          UAT_AMER:
+            description: "User Acceptance Test - AMER"
+            trigger_branch:
+              - trigger/uat
+
+          PROD_EMEA:
+            description: "Production - EMEA"
+            trigger_branch:
+              - trigger/prod
+
+          PROD_AMER:
+            description: "Production - AMER"
+            trigger_branch:
+              - trigger/prod
+
+      - owner: tr
+        name: a208113_oedf-app-dete-calc-hist-summary
+        description: "EDF — Determination calc historical summary app"
+        environments:
+
+          SAT:
+            description: "System Acceptance Test"
+            trigger_branch:
+              - trigger/sat
+
+          UAT_EMEA:
+            description: "User Acceptance Test - EMEA"
+            trigger_branch:
+              - trigger/uat
+
+          UAT_AMER:
+            description: "User Acceptance Test - AMER"
+            trigger_branch:
+              - trigger/uat
+
+          PROD_EMEA:
+            description: "Production - EMEA"
+            trigger_branch:
+              - trigger/prod
+
+          PROD_AMER:
+            description: "Production - AMER"
+            trigger_branch:
+              - trigger/prod
+
+      - owner: tr
+        name: a208113_oedf-app-reconciliation
+        description: "EDF — Reconciliation app"
+        environments:
+
+          SAT:
+            description: "System Acceptance Test"
+            trigger_branch:
+              - trigger/sat
+
+          UAT_EMEA:
+            description: "User Acceptance Test - EMEA"
+            trigger_branch:
+              - trigger/uat
+
+          UAT_AMER:
+            description: "User Acceptance Test - AMER"
+            trigger_branch:
+              - trigger/uat
+
+          PROD_EMEA:
+            description: "Production - EMEA"
+            trigger_branch:
+              - trigger/prod
+
+          PROD_AMER:
+            description: "Production - AMER"
+            trigger_branch:
+              - trigger/prod

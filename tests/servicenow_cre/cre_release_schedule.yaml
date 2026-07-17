@@ -1,0 +1,577 @@
+# =============================================================================
+# CRE Master Configuration — Single Source of Truth
+# =============================================================================
+#
+# OWNER:   Release Management team
+# COVERS:  Teams meeting automation  +  Playwright CR creation  +  CR registry
+#
+# RULES:
+#   • Deployment dates:  DD-MM-YYYY  (ServiceNow date input format)
+#   • Meeting dates:     YYYY-MM-DD  (Power Automate / Python format)
+#   • Do NOT change deployment_times without consulting the RM team
+#   • To add a release: copy any schedule block, update all dates + buildVersion
+#
+# USAGE:
+#   Teams meetings :  python teams_meeting.py --project CRE --release-version 2026.05.00
+#   CR creation    :  $env:RELEASE_VERSION="2026.05.00"; npx playwright test CRE/changeRequest.spec.ts --headed
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Power Automate
+# -----------------------------------------------------------------------------
+power_automate:
+  url: "https://make.powerautomate.com/environments/Default-62ccb864-6a1a-4b5d-8e1c-397dec1a8258/flows"
+
+
+# -----------------------------------------------------------------------------
+# ServiceNow
+# -----------------------------------------------------------------------------
+servicenow:
+  base_url: "https://trenterprise.service-now.com/change_request.do"
+  list_filter: "active=true^short_description>=Content Rate Extract^ORDERBYshort_description"
+
+
+# -----------------------------------------------------------------------------
+# Deployment Window  (used by Playwright for all environments)
+# -----------------------------------------------------------------------------
+deployment_times:
+  start: "16:20:00"
+  end:   "23:30:00"
+
+
+# -----------------------------------------------------------------------------
+# Attendee Groups
+# -----------------------------------------------------------------------------
+attendee_groups:
+  group_cre_lead:
+    - radhakrishna.pachipulusu@thomsonreuters.com
+    - AashishMono.Kotte@thomsonreuters.com
+  group_cre_team:
+    - Godzilla@thomsonreuters.com
+    - IDTDevOps@thomsonreuters.com
+    - IDT-PerfQA@thomsonreuters.com
+    - IDT-TechOps@thomsonreuters.com
+  group_cre_optional:
+    - IDT-ReleaseManagement@thomsonreuters.com
+
+
+# -----------------------------------------------------------------------------
+# Time Slots  (start / end / duration in minutes)
+# -----------------------------------------------------------------------------
+time_slots:
+  slot_30_1245:  { start: "12:45:00", end: "13:15:00", duration: 30  }
+  slot_30_1600:  { start: "16:00:00", end: "16:30:00", duration: 30  }
+  slot_30_1930:  { start: "19:30:00", end: "20:00:00", duration: 30  }
+  slot_60_1930:  { start: "19:30:00", end: "20:30:00", duration: 60  }
+  slot_450_1620: { start: "16:20:00", end: "23:50:00", duration: 450 }
+
+
+# -----------------------------------------------------------------------------
+# Form Field Sets  (reusable field lists for meeting flows)
+# -----------------------------------------------------------------------------
+form_field_sets:
+  basic:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - required_attendees
+  basic_with_urls:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - release_schedule_url
+    - release_readiness_url
+    - required_attendees
+  with_optional:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - release_schedule_url
+    - release_readiness_url
+    - required_attendees
+    - optional_attendees
+  with_retro:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - release_schedule_url
+    - release_readiness_url
+    - release_retro_url
+    - required_attendees
+    - optional_attendees
+
+
+# -----------------------------------------------------------------------------
+# Meeting Definitions
+# -----------------------------------------------------------------------------
+meetings:
+  Inform CRE team about freeze activities:
+    flow_name: "CRE->01->Inform CRE team about freeze activities"
+    subject_template: "[{release_number}]"
+    description_template: "CRE Team Freeze Notification for {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Inform CRE team about freeze activities"
+    time_slot: slot_30_1245
+    required_attendees: group_cre_lead
+    form_fields: basic
+
+  CRE freeze activities Meeting:
+    flow_name: "CRE->01_01->CRE Code freeze activities Meeting"
+    subject_template: "[{release_number}]"
+    description_template: "CRE Team Freeze Notification for {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Inform CRE team about freeze activities"
+    time_slot: slot_30_1245
+    required_attendees: group_cre_team
+    optional_attendees: group_cre_optional
+    form_fields: with_optional
+
+  Create Change Request:
+    flow_name: "CRE->02->Create Change Request"
+    subject_template: "[{release_number}]"
+    description_template: "CRE Create Change Request for {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Create Change Request"
+    time_slot: slot_30_1245
+    required_attendees: group_cre_lead
+    form_fields: basic
+
+  Release Retro & Release Scope Review:
+    flow_name: "CRE->03->Retro & Release Scope Review Meeting"
+    subject_template: "[{release_number}]"
+    description_template: "Release Retro & Release Scope Review for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Release Retro & Code Freeze"
+    time_slot: slot_60_1930
+    required_attendees: group_cre_team
+    optional_attendees: group_cre_optional
+    form_fields: with_retro
+
+  QA Env Sign off:
+    flow_name: "CRE->04->QA Sign-Off"
+    subject_template: "[{release_number}]"
+    description_template: "QA Environment Sign-off for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "QA Env Sign off"
+    time_slot: slot_30_1600
+    required_attendees: group_cre_lead
+    form_fields: basic
+
+  Generate Security Score Card:
+    flow_name: "CRE->04_1->Generate Security Score Card"
+    subject_template: "[{release_number}]"
+    description_template: "Generate Security Score Card for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Generate Security Score Card"
+    time_slot: slot_30_1600
+    required_attendees: group_cre_lead
+    form_fields: basic
+
+  Reminder to cut Release branch:
+    flow_name: "CRE->04_2->Reminder to cut Release branch"
+    subject_template: "[{release_number}]"
+    description_template: "Reminder to cut Release branch for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Reminder to cut Release branch"
+    time_slot: slot_30_1600
+    required_attendees: group_cre_lead
+    form_fields: basic
+
+  Deployment SAT:
+    flow_name: "CRE->05->Deployment - SAT"
+    subject_template: "[{release_number}]"
+    description_template: "System Acceptance Testing - Application for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "SAT APP"
+    time_slot: slot_450_1620
+    required_attendees: group_cre_team
+    optional_attendees: group_cre_optional
+    form_fields: with_optional
+
+  SAT Sign off:
+    flow_name: "CRE->06->SAT Sign-Off"
+    subject_template: "[{release_number}]"
+    description_template: "System Acceptance Testing Sign-off for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "SAT Sign off"
+    time_slot: slot_30_1600
+    required_attendees: group_cre_lead
+    form_fields: basic
+
+  UAT Readiness:
+    flow_name: "CRE->07->UAT Readiness Meeting"
+    subject_template: "[{release_number}]"
+    description_template: "UAT Readiness Meeting for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "UAT Readiness"
+    time_slot: slot_30_1930
+    required_attendees: group_cre_team
+    optional_attendees: group_cre_optional
+    form_fields: with_optional
+
+  UAT EMEA:
+    flow_name: "CRE->08->Deployment - UAT EMEA"
+    subject_template: "[{release_number}]"
+    description_template: "UAT Testing - EMEA Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "UAT EMEA"
+    time_slot: slot_450_1620
+    required_attendees: group_cre_team
+    optional_attendees: group_cre_optional
+    form_fields: with_optional
+
+  UAT AMER:
+    flow_name: "CRE->09->Deployment - UAT AMER"
+    subject_template: "[{release_number}]"
+    description_template: "UAT Testing - AMER Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "UAT AMER"
+    time_slot: slot_450_1620
+    required_attendees: group_cre_team
+    optional_attendees: group_cre_optional
+    form_fields: with_optional
+
+  PROD Readiness:
+    flow_name: "CRE->10->PROD Readiness Meeting"
+    subject_template: "[{release_number}]"
+    description_template: "Production Readiness Meeting for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "PROD Readiness"
+    time_slot: slot_30_1930
+    required_attendees: group_cre_team
+    optional_attendees: group_cre_optional
+    form_fields: with_optional
+
+  PROD EMEA:
+    flow_name: "CRE->11->Deployment - PROD EMEA"
+    subject_template: "[{release_number}]"
+    description_template: "Production Deployment - EMEA Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "PROD EMEA"
+    time_slot: slot_450_1620
+    required_attendees: group_cre_team
+    optional_attendees: group_cre_optional
+    form_fields: with_optional
+
+  PROD AMER:
+    flow_name: "CRE->12->Deployment - PROD AMER"
+    subject_template: "[{release_number}]"
+    description_template: "Production Deployment - AMER Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "PROD AMER"
+    time_slot: slot_450_1620
+    required_attendees: group_cre_team
+    optional_attendees: group_cre_optional
+    form_fields: with_optional
+
+
+# -----------------------------------------------------------------------------
+# Releases
+# Each entry has:
+#   buildVersion        — used by Playwright in CR short-description / CTask descriptions
+#   deployment_dates    — DD-MM-YYYY, used by Playwright for ServiceNow date fields
+#     Deployment order: SAT → UAT_EMEA → UAT_MENA → UAT_AMER → PROD_EMEA → PROD_MENA → PROD_AMER
+#   meeting_dates       — YYYY-MM-DD, used by teams_meeting.py for Power Automate
+#   url_templates       — shared URL patterns (version placeholder: {version})
+# -----------------------------------------------------------------------------
+releases:
+  url_templates:
+    release_schedule_url:   "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Release%20Schedule%20-%20FY%202026.aspx"
+    security_scorecard_url: "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Security%20Score%20Card%20-%20FY%202026.aspx"
+    release_readiness_url:  "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Release%20Readiness%20-%20CRE%20{version}.aspx"
+    release_notes_url:      "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Internal%20Release%20Notes%20-%20CRE%20{version}.aspx"
+    release_retro_url:      "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Release%20Retrospective%20-%20CRE%20{version}.aspx"
+    release_branch_url:     "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Release%20Branch%20Summary%20-%20CRE%20{version}.aspx"
+
+  schedule:
+    "2026.01.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "22-01-2026"
+        UAT_EMEA:  "28-01-2026"
+        UAT_MENA:  "28-01-2026"
+        UAT_AMER:  "29-01-2026"
+        PROD_EMEA: "04-02-2026"
+        PROD_MENA: "04-02-2026"
+        PROD_AMER: "05-02-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-01-06"
+        "Create Change Request":                   "2026-01-07"
+        "Release Retro & Code Freeze":             "2026-01-13"
+        "Reminder to cut Release branch":          "2026-01-14"
+        "QA Env Sign off":                         "2026-01-15"
+        "Generate Security Score Card":            "2026-01-15"
+        "SAT APP":                                 "2026-01-16"
+        "SAT Sign off":                            "2026-01-22"
+        "UAT Readiness":                           "2026-01-23"
+        "UAT EMEA":                                "2026-01-28"
+        "UAT MENA":                                "2026-01-28"
+        "UAT AMER":                                "2026-01-29"
+        "PROD Readiness":                          "2026-02-03"
+        "PROD EMEA":                               "2026-02-04"
+        "PROD MENA":                               "2026-02-04"
+        "PROD AMER":                               "2026-02-05"
+
+    "2026.02.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "19-02-2026"
+        UAT_EMEA:  "25-02-2026"
+        UAT_MENA:  "25-02-2026"
+        UAT_AMER:  "26-02-2026"
+        PROD_EMEA: "04-03-2026"
+        PROD_MENA: "04-03-2026"
+        PROD_AMER: "05-03-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-02-03"
+        "Create Change Request":                   "2026-02-04"
+        "Release Retro & Code Freeze":             "2026-02-10"
+        "Reminder to cut Release branch":          "2026-02-11"
+        "QA Env Sign off":                         "2026-02-12"
+        "Generate Security Score Card":            "2026-02-12"
+        "SAT APP":                                 "2026-02-13"
+        "SAT Sign off":                            "2026-02-19"
+        "UAT Readiness":                           "2026-02-20"
+        "UAT EMEA":                                "2026-02-25"
+        "UAT MENA":                                "2026-02-25"
+        "UAT AMER":                                "2026-02-26"
+        "PROD Readiness":                          "2026-03-03"
+        "PROD EMEA":                               "2026-03-04"
+        "PROD MENA":                               "2026-03-04"
+        "PROD AMER":                               "2026-03-05"
+
+    "2026.03.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "19-03-2026"
+        UAT_EMEA:  "25-03-2026"
+        UAT_MENA:  "25-03-2026"
+        UAT_AMER:  "26-03-2026"
+        PROD_EMEA: "01-04-2026"
+        PROD_MENA: "01-04-2026"
+        PROD_AMER: "02-04-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-03-03"
+        "Create Change Request":                   "2026-03-04"
+        "Release Retro & Code Freeze":             "2026-03-10"
+        "Reminder to cut Release branch":          "2026-03-11"
+        "QA Env Sign off":                         "2026-03-12"
+        "Generate Security Score Card":            "2026-03-12"
+        "SAT APP":                                 "2026-03-13"
+        "SAT Sign off":                            "2026-03-19"
+        "UAT Readiness":                           "2026-03-20"
+        "UAT EMEA":                                "2026-03-25"
+        "UAT MENA":                                "2026-03-25"
+        "UAT AMER":                                "2026-03-26"
+        "PROD Readiness":                          "2026-03-31"
+        "PROD EMEA":                               "2026-04-01"
+        "PROD MENA":                               "2026-04-01"
+        "PROD AMER":                               "2026-04-02"
+
+    "2026.04.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "16-04-2026"
+        UAT_EMEA:  "22-04-2026"
+        UAT_MENA:  "22-04-2026"
+        UAT_AMER:  "23-04-2026"
+        PROD_EMEA: "29-04-2026"
+        PROD_MENA: "29-04-2026"
+        PROD_AMER: "30-04-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-03-31"
+        "Create Change Request":                   "2026-04-01"
+        "Release Retro & Code Freeze":             "2026-04-07"
+        "Reminder to cut Release branch":          "2026-04-08"
+        "QA Env Sign off":                         "2026-04-09"
+        "Generate Security Score Card":            "2026-04-09"
+        "SAT APP":                                 "2026-04-10"
+        "SAT Sign off":                            "2026-04-16"
+        "UAT Readiness":                           "2026-04-17"
+        "UAT EMEA":                                "2026-04-22"
+        "UAT MENA":                                "2026-04-22"
+        "UAT AMER":                                "2026-04-23"
+        "PROD Readiness":                          "2026-04-28"
+        "PROD EMEA":                               "2026-04-29"
+        "PROD MENA":                               "2026-04-29"
+        "PROD AMER":                               "2026-04-30"
+
+    "2026.05.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "07-05-2026"
+        UAT_EMEA:  "27-05-2026"
+        UAT_MENA:  "27-05-2026"
+        UAT_AMER:  "28-05-2026"
+        PROD_EMEA: "03-06-2026"
+        PROD_MENA: "03-06-2026"
+        PROD_AMER: "04-06-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-04-28"
+        "Create Change Request":                   "2026-04-29"
+        "Release Retro & Code Freeze":             "2026-05-04"
+        "Reminder to cut Release branch":          "2026-05-05"
+        "QA Env Sign off":                         "2026-05-06"
+        "Generate Security Score Card":            "2026-05-06"
+        "SAT APP":                                 "2026-05-07"
+        "SAT Sign off":                            "2026-05-21"
+        "UAT Readiness":                           "2026-05-22"
+        "UAT EMEA":                                "2026-05-27"
+        "UAT MENA":                                "2026-05-27"
+        "UAT AMER":                                "2026-05-28"
+        "PROD Readiness":                          "2026-05-29"
+        "PROD EMEA":                               "2026-06-03"
+        "PROD MENA":                               "2026-06-03"
+        "PROD AMER":                               "2026-06-04"
+
+    "2026.06.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "07-07-2026"
+        UAT_EMEA:  "09-07-2026"
+        UAT_MENA:  "09-07-2026"
+        UAT_AMER:  "09-07-2026"
+        PROD_EMEA: "10-07-2026"
+        PROD_MENA: "10-07-2026"
+        PROD_AMER: "10-07-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-06-09"
+        "Create Change Request":                   "2026-06-10"
+        "Release Retro & Code Freeze":             "2026-06-16"
+        "Reminder to cut Release branch":          "2026-06-17"
+        "QA Env Sign off":                         "2026-06-18"
+        "Generate Security Score Card":            "2026-06-18"
+        "SAT APP":                                 "2026-06-19"
+        "SAT Sign off":                            "2026-06-23"
+        "UAT Readiness":                           "2026-07-08"
+        "UAT EMEA":                                "2026-07-09"
+        "UAT MENA":                                "2026-07-09"
+        "UAT AMER":                                "2026-07-09"
+        "PROD Readiness":                          "2026-07-09"
+        "PROD EMEA":                               "2026-07-08"
+        "PROD MENA":                               "2026-07-08"
+        "PROD AMER":                               "2026-07-08"
+
+    "2026.07.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "17-07-2026"
+        UAT_EMEA:  "24-07-2026"
+        UAT_MENA:  "24-07-2026"
+        UAT_AMER:  "29-07-2026"
+        PROD_EMEA: "05-08-2026"
+        PROD_MENA: "05-08-2026"
+        PROD_AMER: "06-08-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-07-07"
+        "Create Change Request":                   "2026-07-08"
+        "Release Retro & Code Freeze":             "2026-07-14"
+        "Reminder to cut Release branch":          "2026-07-15"
+        "QA Env Sign off":                         "2026-07-16"
+        "Generate Security Score Card":            "2026-07-16"
+        "SAT APP":                                 "2026-07-17"
+        "SAT Sign off":                            "2026-07-23"
+        "UAT Readiness":                           "2026-07-24"
+        "UAT EMEA":                                "2026-07-29"
+        "UAT MENA":                                "2026-07-29"
+        "UAT AMER":                                "2026-07-30"
+        "PROD Readiness":                          "2026-08-04"
+        "PROD EMEA":                               "2026-08-05"
+        "PROD MENA":                               "2026-08-05"
+        "PROD AMER":                               "2026-08-06"
+
+    "2026.08.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "14-08-2026"
+        UAT_EMEA:  "21-08-2026"
+        UAT_MENA:  "21-08-2026"
+        UAT_AMER:  "26-08-2026"
+        PROD_EMEA: "02-09-2026"
+        PROD_MENA: "02-09-2026"
+        PROD_AMER: "03-09-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-08-04"
+        "Create Change Request":                   "2026-08-05"
+        "Release Retro & Code Freeze":             "2026-08-11"
+        "Reminder to cut Release branch":          "2026-08-12"
+        "QA Env Sign off":                         "2026-08-13"
+        "Generate Security Score Card":            "2026-08-13"
+        "SAT APP":                                 "2026-08-14"
+        "SAT Sign off":                            "2026-08-20"
+        "UAT Readiness":                           "2026-08-21"
+        "UAT EMEA":                                "2026-08-26"
+        "UAT MENA":                                "2026-08-26"
+        "UAT AMER":                                "2026-08-27"
+        "PROD Readiness":                          "2026-08-31"
+        "PROD EMEA":                               "2026-09-02"
+        "PROD MENA":                               "2026-09-02"
+        "PROD AMER":                               "2026-09-03"
+
+    "2026.09.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "11-09-2026"
+        UAT_EMEA:  "18-09-2026"
+        UAT_MENA:  "18-09-2026"
+        UAT_AMER:  "23-09-2026"
+        PROD_EMEA: "30-09-2026"
+        PROD_MENA: "30-09-2026"
+        PROD_AMER: "01-10-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-09-01"
+        "Create Change Request":                   "2026-09-02"
+        "Release Retro & Code Freeze":             "2026-09-08"
+        "Reminder to cut Release branch":          "2026-09-09"
+        "QA Env Sign off":                         "2026-09-10"
+        "Generate Security Score Card":            "2026-09-10"
+        "SAT APP":                                 "2026-09-11"
+        "SAT Sign off":                            "2026-09-17"
+        "UAT Readiness":                           "2026-09-18"
+        "UAT EMEA":                                "2026-09-23"
+        "UAT MENA":                                "2026-09-23"
+        "UAT AMER":                                "2026-09-24"
+        "PROD Readiness":                          "2026-09-29"
+        "PROD EMEA":                               "2026-09-30"
+        "PROD MENA":                               "2026-09-30"
+        "PROD AMER":                               "2026-10-01"
+
+    "2026.10.00":
+      buildVersion: "Build#0"
+      deployment_dates:
+        SAT:       "09-10-2026"
+        UAT_EMEA:  "23-10-2026"
+        UAT_MENA:  "23-10-2026"
+        UAT_AMER:  "28-10-2026"
+        PROD_EMEA: "04-11-2026"
+        PROD_MENA: "04-11-2026"
+        PROD_AMER: "05-11-2026"
+      meeting_dates:
+        "Inform CRE team about freeze activities": "2026-09-30"
+        "Create Change Request":                   "2026-10-01"
+        "Release Retro & Code Freeze":             "2026-10-06"
+        "Reminder to cut Release branch":          "2026-10-07"
+        "QA Env Sign off":                         "2026-10-08"
+        "Generate Security Score Card":            "2026-10-08"
+        "SAT APP":                                 "2026-10-09"
+        "SAT Sign off":                            "2026-10-22"
+        "UAT Readiness":                           "2026-10-23"
+        "UAT EMEA":                                "2026-10-28"
+        "UAT MENA":                                "2026-10-28"
+        "UAT AMER":                                "2026-10-29"
+        "PROD Readiness":                          "2026-11-03"
+        "PROD EMEA":                               "2026-11-04"
+        "PROD MENA":                               "2026-11-04"
+        "PROD AMER":                               "2026-11-05"
+
+
+# -----------------------------------------------------------------------------
+# Change Request Registry
+# Auto-maintained by Playwright (testDataConfig_CRE.ts → ChangeRequestStorage)
+# Format per entry:
+#   crNumber:       CHG0XXXXXX
+#   crUrl:          https://trenterprise.service-now.com/change_request.do?...
+#   crSysId:        <32-char hex>  (present only when sys_id was captured post-submit)
+#   timestamp:      ISO-8601
+#   configName:     SAT | UAT_EMEA | UAT_MENA | UAT_AMER | PROD_EMEA | PROD_MENA | PROD_AMER
+#   releaseVersion: YYYY.MM.00
+# -----------------------------------------------------------------------------
+change_request_registry: {}

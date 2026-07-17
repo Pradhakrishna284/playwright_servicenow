@@ -1,0 +1,32 @@
+{
+  "name": "playwright_servicenow",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "update-release": "node scripts/updateReleaseConfig.js",
+    "test:cre:sat": "npx playwright test tests/CRE/changeRequest.spec.ts --grep SAT",
+    "test:cre:uat-emea": "npx playwright test tests/CRE/changeRequest.spec.ts --grep UAT_EMEA",
+    "test:cre:uat-amer": "npx playwright test tests/CRE/changeRequest.spec.ts --grep UAT_AMER",
+    "test:cre:prod-emea": "npx playwright test tests/CRE/changeRequest.spec.ts --grep PROD_EMEA",
+    "test:cre:prod-amer": "npx playwright test tests/CRE/changeRequest.spec.ts --grep PROD_AMER",
+    "cr:api": "npx ts-node tests/servicenow_cre/createCR_api.ts",
+    "cr:api:dry-run": "cross-env DRY_RUN=true npx ts-node tests/servicenow_cre/createCR_api.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^25.0.3",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "dotenv": "^17.2.3",
+    "js-yaml": "^4.1.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
+  }
+}

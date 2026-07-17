@@ -1,0 +1,502 @@
+# ============================================================
+#  TDR (Tax Data Repository) — Release Automation Config
+#  FY 2026
+# ============================================================
+#
+# NOTE — Prod Deployment dates:
+#   The official release schedule lists the "go/no-go" milestone date (e.g. Thu).
+#   The actual PROD deployment window is 08:00–11:00 IST the FOLLOWING day (e.g. Fri).
+#   Dates in the schedule below reflect the actual execution date (+1 day from
+#   the official schedule), so that calendar invites and ADO sprints are correct.
+
+power_automate:
+  url: "https://make.powerautomate.com/environments/Default-62ccb864-6a1a-4b5d-8e1c-397dec1a8258/flows"
+
+# -----------------------------------------------------------------------------
+# Attendee Groups  (test — two groups only)
+# -----------------------------------------------------------------------------
+attendee_groups:
+  group_tdr_team:
+    - radhakrishna.pachipulusu@thomsonreuters.com
+    - AashishMono.Kotte@thomsonreuters.com
+  group_tdr_optional:
+    - Dhruv.Rajpurohit@thomsonreuters.com
+
+  # TODO: group_full_tdr is referenced by UAT Data Refresh and QA Data Refresh
+  # but was never defined in the original config_tdr.json — define it here,
+  # or replace the $group_full_tdr references below with an existing group.
+  # group_full_tdr:
+  #   - ...
+
+# ── Time slots (HH:MM:SS) ────────────────────────────────────
+time_slots:
+  slot_30_1230:  { start: "12:30:00", end: "13:00:00", duration: 30  }
+  slot_30_1700:  { start: "17:00:00", end: "17:30:00", duration: 30  }
+  slot_30_1730:  { start: "17:30:00", end: "18:00:00", duration: 30  }
+  slot_30_1830:  { start: "18:30:00", end: "19:00:00", duration: 30  }
+  slot_30_2000:  { start: "20:00:00", end: "20:30:00", duration: 30  }
+  slot_180_0800: { start: "08:00:00", end: "11:00:00", duration: 180 }
+
+# ── Form field sets ──────────────────────────────────────────
+# Field order matters — Power Automate fills them in this sequence.
+form_field_sets:
+  basic:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - required_attendees
+
+  basic_reorder:          # subject & attendees filled before dates
+    - subject
+    - required_attendees
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+
+  with_urls:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - release_schedule_url
+    - release_readiness_url
+    - required_attendees
+    - optional_attendees
+
+  with_all_urls:          # attendees & optional before dates
+    - subject
+    - required_attendees
+    - optional_attendees
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - release_schedule_url
+    - release_readiness_url
+    - release_notes_url
+    - security_scorecard_url
+
+# ── Meeting definitions ──────────────────────────────────────
+# time_slot assignments are taken verbatim from excel_schedule.meeting_columns
+# in the original config_tdr.json.
+# NOTE: TDR has NO "Security Scorecard" meeting — the scorecard is generated
+# as part of QA Sign-off (they share the same flow name).
+meetings:
+  Determination Enterprise Cloud Component Details:
+    flow_name: "TDR->00->Determination Enterprise Cloud Component Details"
+    subject_template: "[{release_number}]"
+    description_template: "Determination Enterprise Cloud Component Details for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team
+    form_fields: $basic
+
+  SDI & GPG Details:
+    flow_name: "TDR->01->SDI & GPG Details"
+    subject_template: "[{release_number}]"
+    description_template: "SDI & GPG Details for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team
+    form_fields: $basic
+
+  CCA Details:
+    flow_name: "TDR->01_0->CCA Details"
+    subject_template: "[{release_number}]"
+    description_template: "CCA Details for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team
+    form_fields: $basic
+
+  Code Freeze:
+    flow_name: "TDR->01_1->Inform Sandeep to merge changes"
+    subject_template: "[{release_number}]"
+    description_template: "Release Branch Creation for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team
+    form_fields: $basic
+
+  Release Branch:
+    flow_name: "TDR->1->Release Branch Creation"
+    subject_template: "[{release_number}]"
+    description_template: "Release Branch Creation for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team
+    form_fields: $basic
+
+  Release Scope Review:
+    flow_name: "TDR->2->Release Scope Review Meeting"
+    subject_template: "[{release_number}]"
+    description_template: "Release Scope Review for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_2000
+    required_attendees: $group_tdr_team
+    optional_attendees: $group_tdr_optional
+    form_fields: $with_urls
+
+  QA Sign-off:
+    flow_name: "TDR->3->QA Sign-Off"
+    subject_template: "[{release_number}]"
+    description_template: "QA Sign-off Meeting for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1730
+    required_attendees: $group_tdr_team
+    form_fields: $basic
+  
+  Generate Security Scorecard:
+    flow_name: "TDR->4->Generate Security Scorecard"
+    subject_template: "[{release_number}]"
+    description_template: "Security Scorecard Review for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1730
+    required_attendees: $group_tdr_team
+    form_fields: $basic
+
+  UAT Readiness:
+    flow_name: "TDR->5->UAT Release Readiness Meeting"
+    subject_template: "[{release_number}]"
+    description_template: "UAT Readiness Review for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_2000
+    required_attendees: $group_tdr_team
+    optional_attendees: $group_tdr_optional
+    form_fields: $with_all_urls
+
+  UAT Deployment:
+    flow_name: "TDR->6->UAT Deployment"
+    subject_template: "[{release_number}]"
+    description_template: "UAT Deployment for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team
+    form_fields: $basic_reorder
+
+  UAT Sign-off:
+    flow_name: "TDR->6_1->UAT Sign-Off"
+    subject_template: "[{release_number}]"
+    description_template: "UAT Sign-off Meeting for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1730
+    required_attendees: $group_tdr_team
+    form_fields: $basic
+
+  PROD Readiness:
+    flow_name: "TDR->7->PROD Release Readiness Meeting"
+    subject_template: "[{release_number}]"
+    description_template: "PROD Readiness Review for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_2000
+    required_attendees: $group_tdr_team
+    optional_attendees: $group_tdr_optional
+    form_fields: $with_all_urls
+
+  Prod Deployment:
+    flow_name: "TDR->8->Prod Deployment"
+    subject_template: "[{release_number}]"
+    description_template: "Production Deployment for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_180_0800
+    required_attendees: $group_tdr_team
+    form_fields: $basic_reorder
+
+  Prod Sign-off & Data Backup Change Creation:
+    flow_name: "TDR->9->RK Data Backup Change Creation"
+    subject_template: "[{release_number}]"
+    description_template: "Production Sign-off & Data Backup Change Creation for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1700
+    required_attendees: $group_tdr_team
+    form_fields: $basic_reorder
+
+  UAT/QA Data Backup:
+    flow_name: "TDR->10->Generate Production Data Backup"
+    subject_template: "[{release_number}]"
+    description_template: "UAT/QA Data Backup for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team
+    form_fields: $basic_reorder
+
+  RK UAT Change Creation:
+    flow_name: "TDR->11->RK UAT Change Creation"
+    subject_template: "[{release_number}]"
+    description_template: "RK UAT Change Creation for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team
+    form_fields: $basic_reorder
+
+  UAT Data Refresh:
+    flow_name: "TDR->12->UAT Data Refresh"
+    subject_template: "[{release_number}]"
+    description_template: "UAT Data Refresh for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team   # TODO: define group_full_tdr in attendee_groups above
+    form_fields: $basic_reorder
+
+  RK QA Change Creation:
+    flow_name: "TDR->13->QA Change Creation"
+    subject_template: "[{release_number}]"
+    description_template: "QA Change Creation for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team
+    form_fields: $basic_reorder
+
+  QA Data Refresh:
+    flow_name: "TDR->14->QA Data Refresh"
+    subject_template: "[{release_number}]"
+    description_template: "QA Data Refresh for TDR {release_number}\nSchedule: {release_schedule_url}"
+    time_slot: $slot_30_1230
+    required_attendees: $group_tdr_team   # TODO: define group_full_tdr in attendee_groups above
+    form_fields: $basic_reorder
+
+# ── Release metadata & URLs ──────────────────────────────────
+# TDR differs from CRE:
+#   - release_schedule_url, security_scorecard_url are FIXED (not versioned) —
+#     one URL for all releases in the year. Stored in url_templates so the code
+#     can resolve them via url_templates.get(key).
+#   - release_retro_url is also fixed; kept as a top-level key (used by get_retro_url).
+#   - Only release_readiness_url and release_notes_url are versioned per release.
+releases:
+  release_retro_url: "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Tax%20Data%20Repository%20Cloud%20Release%20Retrospective%20-%20FY%202026.aspx"
+
+  url_templates:
+    release_schedule_url:   "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Tax%20Data%20Repository%20Cloud%20Release%20Schedule%20-%20FY%202026.aspx"
+    security_scorecard_url: "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Indirect%20Tax%20Data%20Repository%20Cloud%20Security%20Score%20Card%20-%20FY%202026.aspx"
+    release_readiness_url:  "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Tax%20Data%20Repository%20Cloud%20Release%20Readiness%20-%20TDR%20{version}.aspx"
+    release_notes_url:      "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Tax%20Data%20Repository%20Cloud%20Internal%20Release%20Notes%20-%20TDR%20{version}.aspx"
+
+# ── Release schedule ─────────────────────────────────────────
+# Dates in YYYY-MM-DD. Omit a meeting row to skip it for that release.
+# "RK QA Change Creation" absence also auto-skips "QA Data Refresh".
+  schedule:
+    "2026.01.00":
+      SDI & CCA & GPG Details:                     "2025-12-02"
+      Code Freeze:                                  "2026-01-13"
+      Release Branch:                               "2026-01-14"
+      Release Scope Review:                         "2026-01-14"
+      QA Sign-off:                                  "2026-01-16"
+      Generate Security Scorecard:                  "2026-01-16"
+      UAT Readiness:                                "2026-01-16"
+      UAT Deployment:                               "2026-01-19"
+      UAT Sign-off:                                 "2026-02-03"
+      PROD Readiness:                               "2026-02-04"
+      Prod Deployment:                              "2026-02-05"
+      Prod Sign-off & Data Backup Change Creation:  "2026-02-06"
+      UAT/QA Data Backup:                           "2026-02-09"
+      RK UAT Change Creation:                       "2026-02-11"
+      UAT Data Refresh:                             "2026-02-13"
+      RK QA Change Creation:                        "2026-02-18"
+      QA Data Refresh:                              "2026-02-21"
+
+    "2026.02.00":
+      Determination Enterprise Cloud Component Details: "2026-02-04"
+      SDI & CCA & GPG Details:                     "2026-02-10"
+      Code Freeze:                                  "2026-02-10"
+      Release Branch:                               "2026-02-11"
+      Release Scope Review:                         "2026-02-11"
+      QA Sign-off:                                  "2026-02-12"
+      Generate Security Scorecard:                  "2026-02-12"
+      UAT Readiness:                                "2026-02-13"
+      UAT Deployment:                               "2026-02-16"
+      UAT Sign-off:                                 "2026-03-03"
+      PROD Readiness:                               "2026-03-04"
+      Prod Deployment:                              "2026-03-05"
+      Prod Sign-off & Data Backup Change Creation:  "2026-03-06"
+      UAT/QA Data Backup:                           "2026-03-09"
+      RK UAT Change Creation:                       "2026-03-11"
+      UAT Data Refresh:                             "2026-03-13"
+      RK QA Change Creation:                        "2026-03-18"
+      QA Data Refresh:                              "2026-03-21"
+
+    "2026.03.00":
+      Code Freeze:                                  "2026-03-10"
+      Release Branch:                               "2026-03-11"
+      Release Scope Review:                         "2026-03-11"
+      QA Sign-off:                                  "2026-03-12"
+      Generate Security Scorecard:                  "2026-03-12"
+      UAT Readiness:                                "2026-03-13"
+      UAT Deployment:                               "2026-03-16"
+      UAT Sign-off:                                 "2026-03-31"
+      PROD Readiness:                               "2026-04-01"
+      Prod Deployment:                              "2026-04-02"
+      Prod Sign-off & Data Backup Change Creation:  "2026-04-03"
+      UAT/QA Data Backup:                           "2026-04-06"
+      RK UAT Change Creation:                       "2026-04-08"
+      UAT Data Refresh:                             "2026-04-10"
+      RK QA Change Creation:                        "2026-04-15"
+      QA Data Refresh:                              "2026-04-18"
+
+    "2026.04.00":
+      Determination Enterprise Cloud Component Details: "2026-03-31"
+      SDI & CCA & GPG Details:                      "2026-04-07"
+      Code Freeze:                                  "2026-04-07"
+      Release Branch:                               "2026-04-08"
+      Release Scope Review:                         "2026-04-08"
+      QA Sign-off:                                  "2026-04-09"
+      Generate Security Scorecard:                  "2026-04-09"
+      UAT Readiness:                                "2026-04-10"
+      UAT Deployment:                               "2026-04-13"
+      UAT Sign-off:                                 "2026-05-05"
+      PROD Readiness:                               "2026-05-06"
+      Prod Deployment:                              "2026-05-07"
+      Prod Sign-off & Data Backup Change Creation:  "2026-05-08"
+      UAT/QA Data Backup:                           "2026-05-11"
+      RK UAT Change Creation:                       "2026-05-13"
+      UAT Data Refresh:                             "2026-05-15"
+      RK QA Change Creation:                        "2026-05-20"
+      QA Data Refresh:                              "2026-05-23"
+
+    "2026.05.00":
+      CCA Details:                                  "2026-05-04"
+      Code Freeze:                                  "2026-05-19"
+      Release Branch:                               "2026-05-20"
+      Release Scope Review:                         "2026-05-20"
+      QA Sign-off:                                  "2026-05-21"
+      Generate Security Scorecard:                  "2026-05-21"
+      UAT Readiness:                                "2026-05-22"
+      UAT Deployment:                               "2026-05-25"
+      UAT Sign-off:                                 "2026-06-02"
+      PROD Readiness:                               "2026-06-03"
+      Prod Deployment:                              "2026-06-04"
+      Prod Sign-off & Data Backup Change Creation:  "2026-06-05"
+      UAT/QA Data Backup:                           "2026-06-08"
+      RK UAT Change Creation:                       "2026-06-10"
+      UAT Data Refresh:                             "2026-06-12"
+      RK QA Change Creation:                        "2026-06-17"
+      QA Data Refresh:                              "2026-06-20"
+
+    "2026.06.00":
+      Determination Enterprise Cloud Component Details: "2026-05-27"
+      SDI & GPG Details:                            "2026-06-02"
+      CCA Details:                                  "2026-06-02"
+      Code Freeze:                                  "2026-06-16"
+      Release Branch:                               "2026-06-17"
+      Release Scope Review:                         "2026-06-17"
+      QA Sign-off:                                  "2026-06-18"
+      Generate Security Scorecard:                  "2026-06-18"
+      UAT Readiness:                                "2026-06-19"
+      UAT Deployment:                               "2026-06-22"
+      UAT Sign-off:                                 "2026-06-30"
+      PROD Readiness:                               "2026-07-01"
+      Prod Deployment:                              "2026-07-02"
+      Prod Sign-off & Data Backup Change Creation:  "2026-07-03"
+      UAT/QA Data Backup:                           "2026-07-06"
+      RK UAT Change Creation:                       "2026-07-08"
+      UAT Data Refresh:                             "2026-07-10"
+      RK QA Change Creation:                        "2026-07-15"
+      QA Data Refresh:                              "2026-07-18"
+
+    "2026.07.00":
+      CCA Details:                                  "2026-06-30"
+      Code Freeze:                                  "2026-07-14"
+      Release Branch:                               "2026-07-15"
+      Release Scope Review:                         "2026-07-15"
+      QA Sign-off:                                  "2026-07-16"
+      Generate Security Scorecard:                  "2026-07-16"
+      UAT Readiness:                                "2026-07-17"
+      UAT Deployment:                               "2026-07-20"
+      UAT Sign-off:                                 "2026-08-04"
+      PROD Readiness:                               "2026-08-05"
+      Prod Deployment:                              "2026-08-06"
+      Prod Sign-off & Data Backup Change Creation:  "2026-08-07"
+      UAT/QA Data Backup:                           "2026-08-10"
+      RK UAT Change Creation:                       "2026-08-12"
+      UAT Data Refresh:                             "2026-08-14"
+      RK QA Change Creation:                        "2026-08-19"
+      QA Data Refresh:                              "2026-08-22"
+
+    "2026.08.00":
+      Determination Enterprise Cloud Component Details: "2026-07-21"
+      SDI & GPG Details:                            "2026-07-28"
+      CCA Details:                                  "2026-07-28"
+      Code Freeze:                                  "2026-08-11"
+      Release Branch:                               "2026-08-12"
+      Release Scope Review:                         "2026-08-12"
+      QA Sign-off:                                  "2026-08-13"
+      Generate Security Scorecard:                  "2026-08-13"
+      UAT Readiness:                                "2026-08-14"
+      UAT Deployment:                               "2026-08-17"
+      UAT Sign-off:                                 "2026-09-01"
+      PROD Readiness:                               "2026-09-02"
+      Prod Deployment:                              "2026-09-03"
+      Prod Sign-off & Data Backup Change Creation:  "2026-09-04"
+      UAT/QA Data Backup:                           "2026-09-07"
+      RK UAT Change Creation:                       "2026-09-09"
+      UAT Data Refresh:                             "2026-09-11"
+      RK QA Change Creation:                        "2026-09-16"
+      QA Data Refresh:                              "2026-09-19"
+
+    "2026.09.00":
+      CCA Details:                                  "2026-08-25"
+      Code Freeze:                                  "2026-09-08"
+      Release Branch:                               "2026-09-09"
+      Release Scope Review:                         "2026-09-09"
+      QA Sign-off:                                  "2026-09-10"
+      Generate Security Scorecard:                  "2026-09-10"
+      UAT Readiness:                                "2026-09-11"
+      UAT Deployment:                               "2026-09-14"
+      UAT Sign-off:                                 "2026-09-29"
+      PROD Readiness:                               "2026-09-30"
+      Prod Deployment:                              "2026-10-01"
+      Prod Sign-off & Data Backup Change Creation:  "2026-10-02"
+      UAT/QA Data Backup:                           "2026-10-05"
+      RK UAT Change Creation:                       "2026-10-07"
+      UAT Data Refresh:                             "2026-10-09"
+      RK QA Change Creation:                        "2026-10-14"
+      QA Data Refresh:                              "2026-10-17"
+
+    "2026.10.00":
+      Determination Enterprise Cloud Component Details: "2026-09-16"
+      SDI & CCA & GPG Details:                     "2026-09-22"
+      CCA Details:                                  "2026-09-22"
+      Code Freeze:                                  "2026-10-20"
+      Release Branch:                               "2026-10-21"
+      Release Scope Review:                         "2026-10-21"
+      QA Sign-off:                                  "2026-10-22"
+      Generate Security Scorecard:                  "2026-10-22"
+      UAT Readiness:                                "2026-10-23"
+      UAT Deployment:                               "2026-10-26"
+      UAT Sign-off:                                 "2026-11-03"
+      PROD Readiness:                               "2026-11-04"
+      Prod Deployment:                              "2026-11-05"
+      Prod Sign-off & Data Backup Change Creation:  "2026-11-06"
+      UAT/QA Data Backup:                           "2026-11-09"
+      RK UAT Change Creation:                       "2026-11-11"
+      UAT Data Refresh:                             "2026-11-13"
+      RK QA Change Creation:                        "2026-11-18"
+      QA Data Refresh:                              "2026-11-21"
+
+    "2026.11.00":
+      CCA Details:                                  "2026-10-20"
+      Code Freeze:                                  "2026-11-17"
+      Release Branch:                               "2026-11-18"
+      Release Scope Review:                         "2026-11-18"
+      QA Sign-off:                                  "2026-11-19"
+      Generate Security Scorecard:                  "2026-11-19"
+      UAT Readiness:                                "2026-11-20"
+      UAT Deployment:                               "2026-11-23"
+      UAT Sign-off:                                 "2026-12-01"
+      PROD Readiness:                               "2026-12-02"
+      Prod Deployment:                              "2026-12-03"
+      Prod Sign-off & Data Backup Change Creation:  "2026-12-04"
+      UAT/QA Data Backup:                           "2026-12-07"
+      RK UAT Change Creation:                       "2026-12-09"
+      UAT Data Refresh:                             "2026-12-11"
+      RK QA Change Creation:                        "2026-12-16"
+      QA Data Refresh:                              "2026-12-19"
+
+    "2026.12.00":
+      Determination Enterprise Cloud Component Details: "2026-11-19"
+      CCA Details:                                  "2026-12-01"
+      Code Freeze:                                  "2026-12-15"
+      Release Branch:                               "2026-12-16"
+      Release Scope Review:                         "2026-12-16"
+      QA Sign-off:                                  "2026-12-17"
+      Generate Security Scorecard:                  "2026-12-17"
+      UAT Readiness:                                "2026-12-18"
+      UAT Deployment:                               "2026-12-21"
+      UAT Sign-off:                                 "2027-01-05"
+      PROD Readiness:                               "2027-01-06"
+      Prod Deployment:                              "2027-01-07"
+      Prod Sign-off & Data Backup Change Creation:  "2027-01-08"
+      UAT/QA Data Backup:                           "2027-01-11"
+      RK UAT Change Creation:                       "2027-01-13"
+      UAT Data Refresh:                             "2027-01-15"
+      RK QA Change Creation:                        "2027-01-20"
+      QA Data Refresh:                              "2027-01-23"

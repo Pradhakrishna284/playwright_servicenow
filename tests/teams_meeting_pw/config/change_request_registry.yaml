@@ -1,0 +1,333 @@
+change_request_registry:
+  2026.04.00:
+    CHG0183241:
+      crNumber: CHG0183241
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0183241
+      timestamp: '2026-04-02T12:23:48.070Z'
+      configName: SAT
+      releaseVersion: 2026.04.00
+      shortDescription: Content Rate Extract | 2026.04.00 | APP | AWS SAT & OCI QA (Build#0)
+    CHG0183274:
+      crNumber: CHG0183274
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0183274
+      timestamp: '2026-04-02T12:36:56.788Z'
+      configName: UAT_EMEA
+      releaseVersion: 2026.04.00
+      shortDescription: Content Rate Extract | 2026.04.00 | APP | AWS EMEA UAT (Build#0)
+    CHG0183283:
+      crNumber: CHG0183283
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0183283
+      timestamp: '2026-04-02T12:41:30.250Z'
+      configName: UAT_AMER
+      releaseVersion: 2026.04.00
+      shortDescription: Content Rate Extract | 2026.04.00 | APP | AWS/OCI AMER UAT (Build#0)
+    CHG0183292:
+      crNumber: CHG0183292
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0183292
+      timestamp: '2026-04-02T12:46:48.926Z'
+      configName: PROD_EMEA
+      releaseVersion: 2026.04.00
+      shortDescription: Content Rate Extract | 2026.04.00 | APP | AWS EMEA PROD (Build#0)
+    CHG0183298:
+      crNumber: CHG0183298
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0183298
+      timestamp: '2026-04-02T12:50:53.168Z'
+      configName: PROD_AMER
+      releaseVersion: 2026.04.00
+      shortDescription: Content Rate Extract | 2026.04.00 | APP | AWS/OCI AMER PROD (Build#0)
+  2026.05.00:
+    CHG0216230:
+      crNumber: CHG0216230
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0216230
+      timestamp: '2026-04-28T07:03:16.833Z'
+      configName: SAT
+      releaseVersion: 2026.05.00
+      shortDescription: Content Rate Extract | 2026.05.00 | APP | AWS SAT & OCI QA (Build#0)
+    CHG0216243:
+      crNumber: CHG0216243
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0216243
+      timestamp: '2026-04-28T07:17:26.774Z'
+      configName: UAT_EMEA
+      releaseVersion: 2026.05.00
+      shortDescription: Content Rate Extract | 2026.05.00 | APP | AWS EMEA UAT (Build#0)
+    CHG0216246:
+      crNumber: CHG0216246
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0216246
+      timestamp: '2026-04-28T07:22:03.272Z'
+      configName: UAT_AMER
+      releaseVersion: 2026.05.00
+      shortDescription: Content Rate Extract | 2026.05.00 | APP | AWS/OCI AMER UAT (Build#0)
+    CHG0216254:
+      crNumber: CHG0216254
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0216254
+      timestamp: '2026-04-28T07:27:30.890Z'
+      configName: PROD_EMEA
+      releaseVersion: 2026.05.00
+      shortDescription: Content Rate Extract | 2026.05.00 | APP | AWS EMEA PROD (Build#0)
+    CHG0216259:
+      crNumber: CHG0216259
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0216259
+      timestamp: '2026-04-28T07:32:30.189Z'
+      configName: PROD_AMER
+      releaseVersion: 2026.05.00
+      shortDescription: Content Rate Extract | 2026.05.00 | APP | AWS/OCI AMER PROD (Build#0)
+    CHG0165333:
+      crNumber: CHG0165333
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0165333
+      timestamp: '2026-05-12T09:31:44.704Z'
+      configName: GENERATE_DUMP_PROD
+    releaseVersion: 2026.05.00
+    shortDescription: Tax Data Repository | 2026.05.00 | PROD Generate production dump files for data refresh
+  2026.06.00:
+    CHG0267775:
+      crNumber: CHG0267775
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0267775
+      timestamp: '2026-06-10T03:36:45.451Z'
+      configName: SAT
+      releaseVersion: 2026.06.00
+      shortDescription: Content Rate Extract | 2026.06.00 | APP | AWS SAT & OCI QA (Build#0)
+    CHG0269507:
+      crNumber: CHG0269507
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0269507
+      timestamp: '2026-06-12T12:00:53.205Z'
+      configName: UAT_EMEA
+      releaseVersion: 2026.06.00
+      shortDescription: Content Rate Extract | 2026.06.00 | APP | AWS EMEA UAT (Build#0)
+    CHG0269540:
+      crNumber: CHG0269540
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0269540
+      timestamp: '2026-06-12T12:44:57.804Z'
+      configName: UAT_MENA
+      releaseVersion: 2026.06.00
+      shortDescription: Content Rate Extract | 2026.06.00 | APP | OCI MENA UAT (Build#0)
+    CHG0269554:
+      crNumber: CHG0269554
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0269554
+      timestamp: '2026-06-12T12:56:20.796Z'
+      configName: UAT_AMER
+      releaseVersion: 2026.06.00
+      shortDescription: Content Rate Extract | 2026.06.00 | APP | AWS/OCI AMER UAT (Build#0)
+    CHG0269581:
+      crNumber: CHG0269581
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0269581
+      timestamp: '2026-06-12T13:18:21.496Z'
+      configName: PROD_EMEA
+      releaseVersion: 2026.06.00
+      shortDescription: Content Rate Extract | 2026.06.00 | APP | AWS EMEA PROD (Build#0)
+    CHG0269609:
+      crNumber: CHG0269609
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0269609
+      timestamp: '2026-06-12T13:29:42.364Z'
+      configName: PROD_MENA
+      releaseVersion: 2026.06.00
+      shortDescription: Content Rate Extract | 2026.06.00 | APP | OCI MENA PROD (Build#0)
+    CHG0269659:
+      crNumber: CHG0269659
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0269659
+      timestamp: '2026-06-12T14:03:06.103Z'
+      configName: PROD_AMER
+      releaseVersion: 2026.06.00
+      shortDescription: Content Rate Extract | 2026.06.00 | APP | AWS/OCI AMER PROD (Build#0)
+    CHG0282683:
+      crNumber: CHG0282683
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0282683
+      timestamp: '2026-07-07T08:14:50.943Z'
+      configName: SAT
+      releaseVersion: 2026.06.00
+      shortDescription: Content Rate Extract | 2026.06.00 | APP | AWS SAT & OCI QA (Build#1)
+  2026.06.01:
+    CHG0283176:
+      crNumber: CHG0283176
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0283176
+      timestamp: '2026-07-07T16:40:25.267Z'
+      configName: UAT_EMEA
+      releaseVersion: 2026.06.01
+      shortDescription: Content Rate Extract | 2026.06.01 | APP | AWS EMEA UAT (Build#1)
+    CHG0283188:
+      crNumber: CHG0283188
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0283188
+      timestamp: '2026-07-07T17:08:11.631Z'
+      configName: UAT_MENA
+      releaseVersion: 2026.06.01
+      shortDescription: Content Rate Extract | 2026.06.01 | APP | OCI MENA UAT (Build#1)
+    CHG0283199:
+      crNumber: CHG0283199
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0283199
+      timestamp: '2026-07-07T17:15:22.491Z'
+      configName: UAT_AMER
+      releaseVersion: 2026.06.01
+      shortDescription: Content Rate Extract | 2026.06.01 | APP | AWS/OCI AMER UAT (Build#1)
+    CHG0283330:
+      crNumber: CHG0283330
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0283330
+      timestamp: '2026-07-07T19:46:14.868Z'
+      configName: PROD_EMEA
+      releaseVersion: 2026.06.01
+      shortDescription: Content Rate Extract | 2026.06.01 | APP | AWS EMEA PROD (Build#1)
+    CHG0283357:
+      crNumber: CHG0283357
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0283357
+      timestamp: '2026-07-07T19:58:45.627Z'
+      configName: PROD_MENA
+      releaseVersion: 2026.06.01
+      shortDescription: Content Rate Extract | 2026.06.01 | APP | OCI MENA PROD (Build#1)
+    CHG0283366:
+      crNumber: CHG0283366
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0283366
+      timestamp: '2026-07-07T20:07:46.655Z'
+      configName: PROD_AMER
+      releaseVersion: 2026.06.01
+      shortDescription: Content Rate Extract | 2026.06.01 | APP | AWS/OCI AMER PROD (Build#1)
+  2026.07.00:
+    CHG0284240:
+      crNumber: CHG0284240
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284240
+      timestamp: '2026-07-09T04:40:18.047Z'
+      configName: UAT_MENA
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | OCI MENA UAT (Build#0)
+    CHG0284242:
+      crNumber: CHG0284242
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284242
+      timestamp: '2026-07-09T04:40:19.052Z'
+      configName: SAT
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | AWS SAT & OCI QA (Build#0)
+    CHG0284241:
+      crNumber: CHG0284241
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284241
+      timestamp: '2026-07-09T04:40:24.492Z'
+      configName: UAT_EMEA
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | AWS EMEA UAT (Build#0)
+    CHG0284244:
+      crNumber: CHG0284244
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284244
+      timestamp: '2026-07-09T04:44:41.491Z'
+      configName: SAT
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | AWS SAT & OCI QA (Build#0)
+    CHG0284245:
+      crNumber: CHG0284245
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284245
+      timestamp: '2026-07-09T04:45:02.634Z'
+      configName: UAT_EMEA
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | AWS EMEA UAT (Build#0)
+    CHG0284246:
+      crNumber: CHG0284246
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284246
+      timestamp: '2026-07-09T04:45:04.621Z'
+      configName: UAT_MENA
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | OCI MENA UAT (Build#0)
+    CHG0284251:
+      crNumber: CHG0284251
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284251
+      timestamp: '2026-07-09T05:10:00.840Z'
+      configName: UAT_AMER
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | AWS/OCI AMER UAT (Build#0)
+    CHG0284255:
+      crNumber: CHG0284255
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284255
+      timestamp: '2026-07-09T05:21:47.673Z'
+      configName: PROD_EMEA
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | AWS EMEA PROD (Build#0)
+    CHG0284262:
+      crNumber: CHG0284262
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284262
+      timestamp: '2026-07-09T05:39:54.778Z'
+      configName: PROD_MENA
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | OCI MENA PROD (Build#0)
+    CHG0284266:
+      crNumber: CHG0284266
+      crUrl: https://trenterprise.service-now.com/change_request.do?sysparm_query=number%3DCHG0284266
+      timestamp: '2026-07-09T05:45:36.355Z'
+      configName: PROD_AMER
+      releaseVersion: 2026.07.00
+      shortDescription: Content Rate Extract | 2026.07.00 | APP | AWS/OCI AMER PROD (Build#0)
+  2026.08.00:
+    CHG0240522:
+      crNumber: CHG0240522
+      crUrl: >-
+        https://trenterprise.service-now.com/change_request.do?sys_id=eece2f683bca0f54df89168aa4e45ab3&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DContent%20Rate%20Extract%5EORDERBYshort_description
+      timestamp: '2026-07-10T05:58:08.061Z'
+      configName: UAT_MENA
+      releaseVersion: 2026.08.00
+      shortDescription: Content Rate Extract | 2026.08.00 | APP | OCI MENA UAT (Build#0)
+      crSysId: eece2f683bca0f54df89168aa4e45ab3
+    CHG0240525:
+      crNumber: CHG0240525
+      crUrl: >-
+        https://trenterprise.service-now.com/change_request.do?sys_id=8a62f3a03b4ec3946609538e53e45aad&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DContent%20Rate%20Extract%5EORDERBYshort_description
+      timestamp: '2026-07-10T06:13:56.301Z'
+      configName: SAT
+      releaseVersion: 2026.08.00
+      shortDescription: Content Rate Extract | 2026.08.00 | APP | AWS SAT & OCI QA (Build#0)
+      crSysId: 8a62f3a03b4ec3946609538e53e45aad
+    CHG0240526:
+      crNumber: CHG0240526
+      crUrl: >-
+        https://trenterprise.service-now.com/change_request.do?sys_id=19c333a03b8ec3946609538e53e45ad2&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DContent%20Rate%20Extract%5EORDERBYshort_description
+      timestamp: '2026-07-10T06:19:53.646Z'
+      configName: SAT
+      releaseVersion: 2026.08.00
+      shortDescription: Content Rate Extract | 2026.08.00 | APP | AWS SAT & OCI QA (Build#0)
+      crSysId: 19c333a03b8ec3946609538e53e45ad2
+    CHG0240527:
+      crNumber: CHG0240527
+      crUrl: >-
+        https://trenterprise.service-now.com/change_request.do?sys_id=a724ffa43b824b549411c2c643e45ae0&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DContent%20Rate%20Extract%5EORDERBYshort_description
+      timestamp: '2026-07-10T06:21:41.226Z'
+      configName: SAT
+      releaseVersion: 2026.08.00
+      shortDescription: Content Rate Extract | 2026.08.00 | APP | AWS SAT & OCI QA (Build#0)
+      crSysId: a724ffa43b824b549411c2c643e45ae0
+    CHG0240528:
+      crNumber: CHG0240528
+      crUrl: >-
+        https://trenterprise.service-now.com/change_request.do?sys_id=007473a43b824f54df89168aa4e45a41&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DContent%20Rate%20Extract%5EORDERBYshort_description
+      timestamp: '2026-07-10T06:22:47.817Z'
+      configName: SAT
+      releaseVersion: 2026.08.00
+      shortDescription: Content Rate Extract | 2026.08.00 | APP | AWS SAT & OCI QA (Build#0)
+      crSysId: 007473a43b824f54df89168aa4e45a41
+    CHG0240529:
+      crNumber: CHG0240529
+      crUrl: >-
+        https://trenterprise.service-now.com/change_request.do?sys_id=add4ffe82bce0b543e2bf77ac891bfd8&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DContent%20Rate%20Extract%5EORDERBYshort_description
+      timestamp: '2026-07-10T06:24:32.047Z'
+      configName: SAT
+      releaseVersion: 2026.08.00
+      shortDescription: Content Rate Extract | 2026.08.00 | APP | AWS SAT & OCI QA (Build#0)
+      crSysId: add4ffe82bce0b543e2bf77ac891bfd8
+    CHG0240530:
+      crNumber: CHG0240530
+      crUrl: >-
+        https://trenterprise.service-now.com/change_request.do?sys_id=76057b682b820b54fcbefc3c3291bf82&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DContent%20Rate%20Extract%5EORDERBYshort_description
+      timestamp: '2026-07-10T06:25:27.429Z'
+      configName: SAT
+      releaseVersion: 2026.08.00
+      shortDescription: Content Rate Extract | 2026.08.00 | APP | AWS SAT & OCI QA (Build#0)
+      crSysId: 76057b682b820b54fcbefc3c3291bf82
+    CHG0240531:
+      crNumber: CHG0240531
+      crUrl: >-
+        https://trenterprise.service-now.com/change_request.do?sys_id=a2b5bb242b024b543e2bf77ac891bfdd&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DContent%20Rate%20Extract%5EORDERBYshort_description
+      timestamp: '2026-07-10T06:28:25.951Z'
+      configName: SAT
+      releaseVersion: 2026.08.00
+      shortDescription: Content Rate Extract | 2026.08.00 | APP | AWS SAT & OCI QA (Build#0)
+      crSysId: a2b5bb242b024b543e2bf77ac891bfdd
+    CHG0240532:
+      crNumber: CHG0240532
+      crUrl: >-
+        https://trenterprise.service-now.com/change_request.do?sys_id=946a7be83bc64b549411c2c643e45a4f&sysparm_record_list=active%3Dtrue%5Eshort_description%3E%3DContent%20Rate%20Extract%5EORDERBYshort_description
+      timestamp: '2026-07-10T06:48:46.722Z'
+      configName: SAT
+      releaseVersion: 2026.08.00
+      shortDescription: Content Rate Extract | 2026.08.00 | APP | AWS SAT & OCI QA (Build#0)
+      crSysId: 946a7be83bc64b549411c2c643e45a4f

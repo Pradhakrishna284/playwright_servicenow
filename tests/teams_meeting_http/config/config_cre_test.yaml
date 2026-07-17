@@ -1,0 +1,498 @@
+# ============================================================
+#  CRE (Content Rate Extract) — Release Automation Config
+#  FY 2026
+# ============================================================
+#
+# NOTE — Prod Deployment dates:
+#   The official release schedule lists the "go/no-go" milestone date.
+#   The actual PROD deployment window is 16:20–23:50 IST on the scheduled day.
+#   Dates in the schedule below reflect the actual execution dates so that
+#   calendar invites and ADO sprints are correct.
+
+power_automate:
+  url: "https://make.powerautomate.com/environments/Default-62ccb864-6a1a-4b5d-8e1c-397dec1a8258/flows"
+
+  # ── Shared cancel flow ───────────────────────────────────────
+  # One single Power Automate flow handles cancellation for ALL meetings.
+  # It receives subject + start_datetime, finds the matching calendar event,
+  # and deletes it. Paste the HTTP trigger URL here once the flow is set up,
+  # and it will automatically apply to every meeting below.
+  cancel_flow_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+
+release_schedule_url: "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Release%20Schedule%20-%20FY%202026.aspx"
+
+# -----------------------------------------------------------------------------
+# Attendee Groups
+# -----------------------------------------------------------------------------
+attendee_groups:
+  group_cre_team:
+    - radhakrishna.pachipulusu@thomsonreuters.com
+    - AashishMono.Kotte@thomsonreuters.com
+  group_cre_optional:
+    - Dhruv.Rajpurohit@thomsonreuters.com
+
+# -----------------------------------------------------------------------------
+# Time Slots  (start / end / duration in minutes)
+# -----------------------------------------------------------------------------
+time_slots:
+  slot_30_1245:  { start: "12:45:00", end: "13:15:00", duration: 30 }
+  slot_30_1600:  { start: "16:00:00", end: "16:30:00", duration: 30 }
+  slot_30_1930:  { start: "19:30:00", end: "20:00:00", duration: 30 }
+  slot_60_1930:  { start: "19:30:00", end: "20:30:00", duration: 60 }
+  slot_450_1620: { start: "16:20:00", end: "23:50:00", duration: 450 }
+
+# -----------------------------------------------------------------------------
+# Form Field Sets  (reusable field lists for meeting flows)
+# -----------------------------------------------------------------------------
+form_field_sets:
+  basic:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - start_datetime
+    - end_datetime
+    - required_attendees
+  basic_with_urls:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - start_datetime
+    - end_datetime
+    - release_schedule_url
+    - release_readiness_url
+    - required_attendees
+  with_optional:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - start_datetime
+    - end_datetime
+    - release_schedule_url
+    - release_readiness_url
+    - required_attendees
+    - optional_attendees
+  with_retro:
+    - subject
+    - description
+    - start_date
+    - start_time
+    - end_date
+    - end_time
+    - start_datetime
+    - end_datetime
+    - release_schedule_url
+    - release_readiness_url
+    - release_retro_url
+    - required_attendees
+    - optional_attendees
+
+# -----------------------------------------------------------------------------
+# Meeting Definitions
+# schedule_column must match a column key in releases.schedule entries below.
+# time_slot must match a key in time_slots above.
+# -----------------------------------------------------------------------------
+meetings:
+  Inform CRE team about freeze activities:
+    flow_name: "CRE->01->Inform CRE team about freeze activities"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Reminder] - {release_number} | Inform CRE team about freeze activities"
+    description_template: "CRE Team Freeze Notification for {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Inform CRE team about freeze activities"
+    time_slot: $slot_30_1245
+    required_attendees: $group_cre_lead
+    form_fields: $basic
+
+  CRE freeze activities Meeting:
+    flow_name: "CRE->02->Code Freeze Activities Meeting"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Meeting] - {release_number} | Code Freeze Activities Meeting"
+    description_template: "CRE Team Freeze Notification for {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Inform CRE team about freeze activities"
+    time_slot: $slot_30_1245
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+  Create Change Request:
+    flow_name: "CRE->03->Create Change Request"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Reminder] - {release_number} | Create Change Request"
+    description_template: "CRE Create Change Request for {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Create Change Request"
+    time_slot: $slot_30_1245
+    required_attendees: $group_cre_lead
+    form_fields: $basic
+
+  Release Retro & Release Scope Review:
+    flow_name: "CRE->04->Retro & Release Scope Review Meeting"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Meeting] - {release_number} | Release Retro & Release Scope Review"
+    description_template: "Release Retro & Release Scope Review for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Release Retro & Code Freeze"
+    time_slot: $slot_60_1930
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_retro
+
+  QA Sign off:
+    flow_name: "CRE->05->QA Sign-Off"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Reminder] - {release_number} | QA Sign-Off"
+    description_template: "QA Environment Sign-off for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "QA Sign off"
+    time_slot: $slot_30_1600
+    required_attendees: $group_cre_lead
+    form_fields: $basic
+
+  Generate Security Score Card:
+    flow_name: "CRE->06->Generate Security Score Card"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Reminder] - {release_number} | Generate Security Score Card"
+    description_template: "Generate Security Score Card for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Generate Security Score Card"
+    time_slot: $slot_30_1600
+    required_attendees: $group_cre_lead
+    form_fields: $basic
+
+  Reminder to cut Release branch:
+    flow_name: "CRE->07->Reminder to cut Release branch"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Reminder] - {release_number} | Reminder to cut Release branch"
+    description_template: "Reminder to cut Release branch for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "Reminder to cut Release branch"
+    time_slot: $slot_30_1600
+    required_attendees: $group_cre_lead
+    form_fields: $basic
+
+  Deployment SAT:
+    flow_name: "CRE->08->Deployment - SAT"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Deployment] - {release_number} | SAT"
+    description_template: "System Acceptance Testing - Application for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "SAT APP"
+    time_slot: $slot_450_1620
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+  SAT Sign off:
+    flow_name: "CRE->09->SAT Sign-Off"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Reminder] - {release_number} | SAT Sign-Off"
+    description_template: "System Acceptance Testing Sign-off for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "SAT Sign off"
+    time_slot: $slot_30_1600
+    required_attendees: $group_cre_lead
+    form_fields: $basic
+
+  UAT Readiness:
+    flow_name: "CRE->10->UAT Readiness Meeting"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Meeting] - {release_number} | UAT Readiness Meeting"
+    description_template: "UAT Readiness Meeting for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "UAT Readiness"
+    time_slot: $slot_30_1930
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+  UAT EMEA:
+    flow_name: "CRE->11->Deployment - UAT EMEA"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Deployment] - {release_number} | UAT EMEA"
+    description_template: "UAT Testing - EMEA Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "UAT EMEA"
+    time_slot: $slot_450_1620
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+  UAT MENA:
+    flow_name: "CRE->12->Deployment - UAT MENA"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Deployment] - {release_number} | UAT MENA"
+    description_template: "UAT Testing - MENA Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "UAT MENA"
+    time_slot: $slot_450_1620
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+  UAT AMER:
+    flow_name: "CRE->13->Deployment - UAT AMER"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Deployment] - {release_number} | UAT AMER"
+    description_template: "UAT Testing - AMER Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "UAT AMER"
+    time_slot: $slot_450_1620
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+  PROD Readiness:
+    flow_name: "CRE->14->PROD Readiness Meeting"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Meeting] - {release_number} | PROD Readiness Meeting"
+    description_template: "Production Readiness Meeting for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "PROD Readiness"
+    time_slot: $slot_30_1930
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+  PROD EMEA:
+    flow_name: "CRE->15->Deployment - PROD EMEA"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Deployment] - {release_number} | PROD EMEA"
+    description_template: "Production Deployment - EMEA Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "PROD EMEA"
+    time_slot: $slot_450_1620
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+  PROD MENA:
+    flow_name: "CRE->16->Deployment - PROD MENA"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Deployment] - {release_number} | PROD MENA"
+    description_template: "Production Deployment - MENA Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "PROD MENA"
+    time_slot: $slot_450_1620
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+  PROD AMER:
+    flow_name: "CRE->17->Deployment - PROD AMER"
+    trigger_url: ""  # TODO: paste HTTP trigger URL from Power Automate
+    cancel_trigger_url: $cancel_flow_url
+    subject_template: "[Deployment] - {release_number} | PROD AMER"
+    description_template: "Production Deployment - AMER Region for CRE {release_number}\nSchedule: {release_schedule_url}"
+    schedule_column: "PROD AMER"
+    time_slot: $slot_450_1620
+    required_attendees: $group_cre_team
+    optional_attendees: $group_cre_optional
+    form_fields: $with_optional
+
+
+# -----------------------------------------------------------------------------
+# Releases  (replaces CRE_2026_Release_Schedule.xlsx)
+# url_templates: versioned URL patterns using {version} placeholder
+# shared: URLs common across all releases in the year
+# schedule: per-release dates keyed by Excel column header (YYYY-MM-DD)
+# -----------------------------------------------------------------------------
+releases:
+  url_templates:
+    release_readiness_url: "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Release%20Readiness%20-%20CRE%20{version}.aspx"
+    release_notes_url:     "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Internal%20Release%20Notes%20-%20CRE%20{version}.aspx"
+    release_retro_url:     "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Release%20Retrospective%20-%20CRE%20{version}.aspx"
+
+  shared:
+    release_schedule_url:   "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Release%20Schedule%20-%20FY%202026.aspx"
+    security_scorecard_url: "https://trten.sharepoint.com/sites/IndirectTaxReleaseManagement/SitePages/Content%20Rate%20Extract%20Cloud%20Security%20Score%20Card%20-%20FY%202026.aspx"
+
+  schedule:
+    "CRE 2026.01.00":
+      "Inform CRE team about freeze activities": "2026-01-06"
+      "Create Change Request":                   "2026-01-07"
+      "Release Retro & Code Freeze":             "2026-01-13"
+      "Reminder to cut Release branch":          "2026-01-14"
+      "QA Sign off":                         "2026-01-15"
+      "Generate Security Score Card":            "2026-01-15"
+      "SAT APP":                                 "2026-01-16"
+      "SAT Sign off":                            "2026-01-22"
+      "UAT Readiness":                           "2026-01-23"
+      "UAT EMEA":                                "2026-01-28"
+      "UAT MENA":                                "2026-01-28"
+      "UAT AMER":                                "2026-01-29"
+      "PROD Readiness":                          "2026-02-03"
+      "PROD EMEA":                               "2026-02-04"
+      "PROD MENA":                               "2026-02-04"
+      "PROD AMER":                               "2026-02-05"
+
+    "CRE 2026.02.00":
+      "Inform CRE team about freeze activities": "2026-02-03"
+      "Create Change Request":                   "2026-02-04"
+      "Release Retro & Code Freeze":             "2026-02-10"
+      "Reminder to cut Release branch":          "2026-02-11"
+      "QA Sign off":                         "2026-02-12"
+      "Generate Security Score Card":            "2026-02-12"
+      "SAT APP":                                 "2026-02-13"
+      "SAT Sign off":                            "2026-02-19"
+      "UAT Readiness":                           "2026-02-20"
+      "UAT EMEA":                                "2026-02-25"
+      "UAT MENA":                                "2026-02-25"
+      "UAT AMER":                                "2026-02-26"
+      "PROD Readiness":                          "2026-03-03"
+      "PROD EMEA":                               "2026-03-04"
+      "PROD MENA":                               "2026-03-04"
+      "PROD AMER":                               "2026-03-05"
+
+    "CRE 2026.03.00":
+      "Inform CRE team about freeze activities": "2026-03-03"
+      "Create Change Request":                   "2026-03-04"
+      "Release Retro & Code Freeze":             "2026-03-10"
+      "Reminder to cut Release branch":          "2026-03-11"
+      "QA Sign off":                         "2026-03-12"
+      "Generate Security Score Card":            "2026-03-12"
+      "SAT APP":                                 "2026-03-13"
+      "SAT Sign off":                            "2026-03-19"
+      "UAT Readiness":                           "2026-03-20"
+      "UAT EMEA":                                "2026-03-25"
+      "UAT MENA":                                "2026-03-25"
+      "UAT AMER":                                "2026-03-26"
+      "PROD Readiness":                          "2026-03-31"
+      "PROD EMEA":                               "2026-04-01"
+      "PROD MENA":                               "2026-04-01"
+      "PROD AMER":                               "2026-04-02"
+
+    "CRE 2026.04.00":
+      "Inform CRE team about freeze activities": "2026-03-31"
+      "Create Change Request":                   "2026-04-01"
+      "Release Retro & Code Freeze":             "2026-04-07"
+      "Reminder to cut Release branch":          "2026-04-08"
+      "QA Sign off":                         "2026-04-09"
+      "Generate Security Score Card":            "2026-04-09"
+      "SAT APP":                                 "2026-04-10"
+      "SAT Sign off":                            "2026-04-16"
+      "UAT Readiness":                           "2026-04-17"
+      "UAT EMEA":                                "2026-04-22"
+      "UAT MENA":                                "2026-04-22"
+      "UAT AMER":                                "2026-04-23"
+      "PROD Readiness":                          "2026-04-28"
+      "PROD EMEA":                               "2026-04-29"
+      "PROD MENA":                               "2026-04-29"
+      "PROD AMER":                               "2026-04-30"
+
+    "CRE 2026.05.00":
+      "Inform CRE team about freeze activities": "2026-04-28"
+      "Create Change Request":                   "2026-04-29"
+      "Release Retro & Code Freeze":             "2026-05-04"
+      "Reminder to cut Release branch":          "2026-05-05"
+      "QA Sign off":                         "2026-05-06"
+      "Generate Security Score Card":            "2026-05-06"
+      "SAT APP":                                 "2026-05-07"
+      "SAT Sign off":                            "2026-05-21"
+      "UAT Readiness":                           "2026-05-22"
+      "UAT EMEA":                                "2026-05-27"
+      "UAT MENA":                                "2026-05-27"
+      "UAT AMER":                                "2026-05-28"
+      "PROD Readiness":                          "2026-05-29"
+      "PROD EMEA":                               "2026-06-03"
+      "PROD MENA":                               "2026-06-03"
+      "PROD AMER":                               "2026-06-04"
+
+    "CRE 2026.06.00":
+      "Inform CRE team about freeze activities": "2026-06-09"
+      "Create Change Request":                   "2026-06-10"
+      "Release Retro & Code Freeze":             "2026-06-16"
+      "Reminder to cut Release branch":          "2026-06-17"
+      "QA Sign off":                         "2026-06-18"
+      "Generate Security Score Card":            "2026-06-18"
+      "SAT APP":                                 "2026-06-19"
+      "SAT Sign off":                            "2026-06-23"
+      "UAT Readiness":                           "2026-06-24"
+      "UAT EMEA":                                "2026-06-25"
+      "UAT MENA":                                "2026-06-25"
+      "UAT AMER":                                "2026-06-26"
+      "PROD Readiness":                          "2026-06-29"
+      "PROD EMEA":                               "2026-06-30"
+      "PROD MENA":                               "2026-06-30"
+      "PROD AMER":                               "2026-07-02"
+
+    "CRE 2026.07.00":
+      "Inform CRE team about freeze activities": "2026-07-07"
+      "Create Change Request":                   "2026-07-08"
+      "Release Retro & Code Freeze":             "2026-07-14"
+      "Reminder to cut Release branch":          "2026-07-15"
+      "QA Sign off":                         "2026-07-16"
+      "Generate Security Score Card":            "2026-07-16"
+      "SAT APP":                                 "2026-07-17"
+      "SAT Sign off":                            "2026-07-23"
+      "UAT Readiness":                           "2026-07-24"
+      "UAT EMEA":                                "2026-07-29"
+      "UAT MENA":                                "2026-07-29"
+      "UAT AMER":                                "2026-07-30"
+      "PROD Readiness":                          "2026-08-04"
+      "PROD EMEA":                               "2026-08-05"
+      "PROD MENA":                               "2026-08-05"
+      "PROD AMER":                               "2026-08-06"
+
+    "CRE 2026.08.00":
+      "Inform CRE team about freeze activities": "2026-08-04"
+      "Create Change Request":                   "2026-08-05"
+      "Release Retro & Code Freeze":             "2026-08-11"
+      "Reminder to cut Release branch":          "2026-08-12"
+      "QA Sign off":                         "2026-08-13"
+      "Generate Security Score Card":            "2026-08-13"
+      "SAT APP":                                 "2026-08-14"
+      "SAT Sign off":                            "2026-08-20"
+      "UAT Readiness":                           "2026-08-21"
+      "UAT EMEA":                                "2026-08-26"
+      "UAT MENA":                                "2026-08-26"
+      "UAT AMER":                                "2026-08-27"
+      "PROD Readiness":                          "2026-08-31"
+      "PROD EMEA":                               "2026-09-02"
+      "PROD MENA":                               "2026-09-02"
+      "PROD AMER":                               "2026-09-03"
+
+    "CRE 2026.09.00":
+      "Inform CRE team about freeze activities": "2026-09-01"
+      "Create Change Request":                   "2026-09-02"
+      "Release Retro & Code Freeze":             "2026-09-08"
+      "Reminder to cut Release branch":          "2026-09-09"
+      "QA Sign off":                         "2026-09-10"
+      "Generate Security Score Card":            "2026-09-10"
+      "SAT APP":                                 "2026-09-11"
+      "SAT Sign off":                            "2026-09-17"
+      "UAT Readiness":                           "2026-09-18"
+      "UAT EMEA":                                "2026-09-23"
+      "UAT MENA":                                "2026-09-23"
+      "UAT AMER":                                "2026-09-24"
+      "PROD Readiness":                          "2026-09-29"
+      "PROD EMEA":                               "2026-09-30"
+      "PROD MENA":                               "2026-09-30"
+      "PROD AMER":                               "2026-10-01"
+
+    "CRE 2026.10.00":
+      "Inform CRE team about freeze activities": "2026-09-30"
+      "Create Change Request":                   "2026-10-01"
+      "Release Retro & Code Freeze":             "2026-10-06"
+      "Reminder to cut Release branch":          "2026-10-07"
+      "QA Sign off":                         "2026-10-08"
+      "Generate Security Score Card":            "2026-10-08"
+      "SAT APP":                                 "2026-10-09"
+      "SAT Sign off":                            "2026-10-22"
+      "UAT Readiness":                           "2026-10-23"
+      "UAT EMEA":                                "2026-10-28"
+      "UAT MENA":                                "2026-10-28"
+      "UAT AMER":                                "2026-10-29"
+      "PROD Readiness":                          "2026-11-03"
+      "PROD EMEA":                               "2026-11-04"
+      "PROD MENA":                               "2026-11-04"
+      "PROD AMER":                               "2026-11-05"

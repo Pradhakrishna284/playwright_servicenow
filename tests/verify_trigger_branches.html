@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRE · Trigger Branch Verifier</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.26.0/tabler-icons.min.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{
+  --font:'Inter',system-ui,sans-serif; --mono:'Cascadia Code','Fira Code',monospace;
+  --bg:#f0f4f8; --bg2:#ffffff; --bg3:#f5f7fb; --bg4:#e8ecf4; --bg5:#dde3ef;
+  --border:#dde3ef; --border2:#c4cdde; --text:#0f1724; --text2:#3d4d66; --text3:#7a8aa8;
+  --accent:#2563eb; --accent-l:#eff6ff; --accent-b:#bfdbfe; --accent-h:#1d4ed8;
+  --green:#059669; --green-l:#ecfdf5; --green-b:#6ee7b7;
+  --amber:#d97706; --amber-l:#fffbeb; --amber-b:#fcd34d;
+  --red:#dc2626;   --red-l:#fef2f2;   --red-b:#fca5a5;
+  --sky:#0284c7;   --sky-l:#f0f9ff;   --sky-b:#7dd3fc;
+  --teal:#0d9488;  --teal-l:#f0fdfa;  --teal-b:#5eead4;
+  --r4:4px; --r6:6px; --r8:8px; --r10:10px; --r20:20px;
+  --sh1:0 1px 3px rgba(15,23,36,.08),0 1px 2px rgba(15,23,36,.04);
+  --sh2:0 4px 14px rgba(15,23,36,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:14px;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
+
+/* ── HEADER ── */
+header{background:#fff;border-bottom:1px solid var(--border);padding:0 20px;height:56px;
+  display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:200;
+  box-shadow:0 1px 4px rgba(15,23,36,.06);}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;
+  color:var(--text);letter-spacing:-.02em;text-decoration:none;}
+.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:var(--r8);
+  display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;
+  box-shadow:0 2px 6px rgba(37,99,235,.35);}
+.logo-sub{font-size:11px;font-weight:400;color:var(--text3);margin-top:1px;}
+.hsp{flex:1;}
+
+/* PAT in header */
+.hpat{display:flex;align-items:center;gap:7px;}
+.hpat-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;}
+.hpat-input{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r6);
+  color:var(--text);font-size:12px;padding:6px 10px;outline:none;width:240px;
+  font-family:var(--mono);transition:border-color .15s,box-shadow .15s;}
+.hpat-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+.hpat-input::placeholder{color:var(--text3);}
+.hpat-toggle{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:4px;display:flex;align-items:center;}
+.hpat-toggle:hover{color:var(--text);}
+.hpat-status{font-size:11px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:5px;}
+.hpat-status.ok{color:var(--green);}
+.hpat-status.missing{color:var(--amber);}
+.pat-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+/* ── LAYOUT ── */
+.layout{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+aside{width:220px;flex-shrink:0;background:#fff;border-right:1px solid var(--border);padding:12px 0;overflow-y:auto;}
+.sl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1.1px;padding:13px 16px 4px;}
+.si{display:flex;align-items:center;gap:8px;padding:7px 10px;margin:1px 8px;
+  border-radius:var(--r8);cursor:pointer;color:var(--text2);font-size:13px;
+  font-weight:500;transition:background .1s,color .1s;user-select:none;}
+.si i{font-size:15px;flex-shrink:0;}
+.si:hover{background:var(--bg3);color:var(--text);}
+.si.active{background:var(--accent-l);color:var(--accent);font-weight:700;
+  border-left:3px solid var(--accent);padding-left:7px;}
+.sdiv{border:none;border-top:1px solid var(--border);margin:6px 10px;}
+
+/* ── MAIN ── */
+main{flex:1;overflow-y:auto;padding:22px 26px;display:flex;flex-direction:column;gap:16px;}
+
+/* ── CARDS ── */
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--r10);overflow:hidden;box-shadow:var(--sh1);}
+.card-hd{padding:10px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;background:var(--bg3);}
+.card-title{font-size:13px;font-weight:700;color:var(--text);}
+.card-sub{font-size:12px;color:var(--text3);margin-left:auto;}
+.card-body{padding:15px;}
+
+/* ── SECTION HEADER ── */
+.section-title{font-size:18px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:10px;letter-spacing:-.02em;}
+.section-desc{font-size:13px;color:var(--text3);margin-top:4px;line-height:1.5;}
+
+/* ── FORM ── */
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;}
+.field{display:flex;flex-direction:column;gap:4px;}
+label{font-size:12px;font-weight:600;color:var(--text2);}
+input,select{background:#fff;border:1.5px solid var(--border);border-radius:var(--r6);
+  color:var(--text);font-family:var(--font);font-size:13px;padding:7px 10px;outline:none;
+  width:100%;transition:border-color .15s,box-shadow .15s;}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+input:hover:not(:focus),select:hover:not(:focus){border-color:var(--border2);}
+select{cursor:pointer;appearance:none;padding-right:28px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a8aa8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 9px center;}
+
+/* ── COMBOBOX (release version) ── */
+.combo{position:relative;}
+.combo input{padding-right:28px;}
+.combo-toggle{position:absolute;top:0;right:0;height:100%;width:28px;border:none;background:none;
+  cursor:pointer;color:var(--text3);display:flex;align-items:center;justify-content:center;padding:0;}
+.combo-toggle:hover{color:var(--text);}
+.combo-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;
+  border:1.5px solid var(--border2);border-radius:var(--r8);box-shadow:var(--sh2);
+  max-height:220px;overflow-y:auto;z-index:500;display:none;}
+.combo-list.open{display:block;}
+.combo-opt{padding:7px 10px;font-size:13px;color:var(--text2);cursor:pointer;font-family:var(--mono);}
+.combo-opt:hover,.combo-opt.hl{background:var(--accent-l);color:var(--accent);}
+.combo-opt.hidden{display:none;}
+#params-card{overflow:visible;}
+#params-card .card-hd{border-top-left-radius:var(--r10);border-top-right-radius:var(--r10);}
+#params-card .card-body{border-bottom-left-radius:var(--r10);border-bottom-right-radius:var(--r10);}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r8);
+  border:1.5px solid var(--border);background:#fff;color:var(--text);font-family:var(--font);
+  font-size:13px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap;}
+.btn:hover{background:var(--bg3);border-color:var(--border2);}
+.btn:active{transform:scale(.98);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.3);}
+.btn-primary:hover:not(:disabled){background:var(--accent-h);box-shadow:0 4px 12px rgba(37,99,235,.4);}
+.btn-sm{padding:4px 10px;font-size:12px;}
+
+/* ── STATUS BARS ── */
+.sbar{display:flex;align-items:center;gap:10px;padding:11px 15px;border-radius:var(--r8);font-size:12px;font-weight:500;border:1px solid;}
+.sbar-info{background:var(--accent-l);border-color:var(--accent-b);color:var(--accent);}
+.sbar-ok  {background:var(--green-l); border-color:var(--green-b); color:var(--green);}
+.sbar-warn{background:var(--amber-l); border-color:var(--amber-b); color:var(--amber);}
+.sbar-err {background:var(--red-l);   border-color:var(--red-b);   color:var(--red);}
+
+/* ── TAGS / PILLS ── */
+.tag{font-size:11px;padding:2px 7px;border-radius:var(--r20);font-weight:700;border:1px solid;}
+.tag-blue  {background:var(--accent-l);color:var(--accent);border-color:var(--accent-b);}
+.tag-green {background:var(--green-l); color:var(--green); border-color:var(--green-b);}
+.tag-amber {background:var(--amber-l); color:var(--amber); border-color:var(--amber-b);}
+.tag-red   {background:var(--red-l);   color:var(--red);   border-color:var(--red-b);}
+.tag-teal  {background:var(--teal-l);  color:var(--teal);  border-color:var(--teal-b);}
+.tag-gray  {background:var(--bg4);     color:var(--text3); border-color:var(--border);}
+
+/* ── TABLES ── */
+.ptbl{width:100%;border-collapse:collapse;font-size:12px;}
+.ptbl th{text-align:left;padding:8px 10px;color:var(--text3);font-weight:700;font-size:11px;
+  text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid var(--border);background:var(--bg3);}
+.ptbl td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle;}
+.ptbl tr:last-child td{border-bottom:none;}
+.ptbl tr:hover td{background:var(--bg3);}
+
+/* ── LOG ── */
+.log-area{background:#f8fafc;border:none;border-radius:0 0 var(--r10) var(--r10);
+  padding:0;font-family:var(--mono);font-size:12px;line-height:1.6;
+  max-height:460px;overflow-y:auto;color:var(--text);}
+.log-section{padding:10px 16px 10px;}
+.log-section+.log-section{border-top:1px solid var(--border);}
+.log-sec-hd{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--text3);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.log-sec-hd::after{content:'';flex:1;height:1px;background:var(--border);}
+.log-row{display:flex;align-items:baseline;gap:0;padding:3px 0;}
+.log-icon{width:20px;flex-shrink:0;text-align:center;font-size:12px;}
+.log-branch{color:var(--text2);min-width:200px;flex-shrink:0;font-weight:500;}
+.log-sep{color:var(--border2);margin:0 8px;}
+.log-val{flex:1;word-break:break-all;}
+.lc-green{color:var(--green);}.lc-blue{color:var(--accent);}.lc-red{color:var(--red);}
+.lc-amber{color:var(--amber);}.lc-muted{color:var(--text3);}.lc-white{color:var(--text);}.lc-dim{color:var(--border2);}
+.log-footer{padding:10px 16px;border-top:2px solid var(--border);display:flex;align-items:center;gap:14px;
+  background:var(--bg3);border-radius:0 0 var(--r10) var(--r10);}
+.log-footer-stat{font-size:12px;font-weight:700;}
+.log-footer-verdict{margin-left:auto;font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;}
+.lfv-pass{background:var(--green-l);color:var(--green);border:1.5px solid var(--green-b);}
+.lfv-fail{background:var(--red-l);color:var(--red);border:1.5px solid var(--red-b);}
+/* legacy compat */
+.ls{color:var(--green);}.li{color:var(--accent);}.lw{color:var(--amber);}.le{color:var(--red);}.ld{color:var(--text3);}
+
+/* ── MISC ── */
+.mono{font-family:var(--mono);font-size:11px;}
+.flex{display:flex;}.aic{align-items:center;}.jcb{justify-content:space-between;}
+.gap2{gap:8px;}.gap3{gap:12px;}
+.mt2{margin-top:8px;}.mt3{margin-top:12px;}.mt4{margin-top:16px;}
+.spin{animation:spin 1s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── RUN INFO BAR ── */
+.run-meta{display:grid;grid-template-columns:160px 100px 110px 1fr 2fr 110px;gap:0;border-top:1px solid var(--border);overflow-x:auto;}
+.run-kv{padding:10px 14px;border-right:1px solid var(--border);}
+.run-kv:last-child{border-right:none;}
+.run-k{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;}
+.run-v{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text);}
+.run-v.ok{color:var(--green);}
+.run-v.sha{color:var(--accent);}
+
+/* ── FILE RESULT ROWS ── */
+.file-row{border-bottom:1px solid var(--border);}
+.file-row:last-child{border-bottom:none;}
+.file-row-hd{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;user-select:none;}
+.file-row-hd:hover{background:var(--bg3);}
+.file-icon-wrap{width:28px;height:28px;border-radius:var(--r6);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.file-name{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text);flex:1;}
+.file-expected{font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:8px;}
+.file-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:var(--r20);border:1.5px solid;min-width:74px;text-align:center;}
+.fb-pass{background:var(--green-l);color:var(--green);border-color:var(--green-b);}
+.fb-fail{background:var(--red-l);  color:var(--red);  border-color:var(--red-b);}
+.fb-load{background:var(--sky-l);  color:var(--sky);  border-color:var(--sky-b);}
+.fb-pend{background:var(--bg4);    color:var(--text3);border-color:var(--border);}
+.chev{font-size:14px;color:var(--text3);transition:transform .18s;}
+.chev.open{transform:rotate(90deg);}
+
+/* Branch sub-rows */
+.branch-rows{display:none;background:var(--bg3);border-top:1px solid var(--border);}
+.branch-rows.open{display:block;}
+.br-row{display:flex;align-items:center;gap:10px;padding:7px 14px 7px 52px;
+  border-bottom:1px solid var(--border);font-size:12px;}
+.br-row:last-child{border-bottom:none;}
+.br-row:hover{background:var(--bg4);}
+.br-name{font-family:var(--mono);font-size:12px;color:var(--text2);flex:1.2;}
+.br-val {font-family:var(--mono);font-size:11px;color:var(--text3);flex:2;word-break:break-all;}
+.br-row.pass .br-name{color:var(--text);}
+.br-row.pass .br-val {color:var(--green);font-weight:600;}
+.br-row.fail .br-name{color:var(--red);}
+.br-row.fail .br-val {color:var(--red);}
+
+/* ── PROGRESS ── */
+.progress-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:14px;display:none;}
+.progress-bar.show{display:block;}
+.progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .35s ease;width:0%;}
+
+/* ── SUMMARY ── */
+.summary-row{display:flex;align-items:center;gap:16px;padding:12px 15px;border-top:1px solid var(--border);background:var(--bg3);}
+.sum-stat{display:flex;flex-direction:column;gap:2px;}
+.sum-num{font-size:20px;font-weight:800;font-family:var(--mono);}
+.sum-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;}
+.sum-div{width:1px;height:30px;background:var(--border);}
+.sum-verdict{margin-left:auto;font-size:13px;font-weight:700;padding:7px 18px;border-radius:var(--r8);border:1.5px solid;}
+.sv-pass{background:var(--green-l);color:var(--green);border-color:var(--green-b);}
+.sv-fail{background:var(--red-l);  color:var(--red);  border-color:var(--red-b);}
+
+@media(max-width:700px){
+  aside{display:none;}
+  .grid4{grid-template-columns:1fr 1fr;}
+  .hpat-input{width:160px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<header>
+  <a class="logo" href="#">
+    <div class="logo-icon"><i class="ti ti-git-branch"></i></div>
+    <div>
+      <div>Trigger Branch Verifier</div>
+      <div class="logo-sub">tr / a208263_ocre-app-ce-stg-sdm · CRE</div>
+    </div>
+  </a>
+  <div class="hsp"></div>
+  <div class="hpat">
+    <span class="hpat-label">GitHub PAT</span>
+    <input type="password" class="hpat-input" id="hpat-input"
+      placeholder="ghp_••••••••••••••••••••••"
+      autocomplete="off" spellcheck="false"
+      oninput="onPatInput(this.value)">
+    <button type="button" class="hpat-toggle" onclick="togglePatVis()" title="Show/hide token">
+      <i class="ti ti-eye" id="eye-icon"></i>
+    </button>
+    <span class="hpat-status missing" id="hpat-status">
+      <span class="pat-dot"></span>
+      <span id="hpat-status-txt">No PAT</span>
+    </span>
+  </div>
+</header>
+
+<!-- ══ BODY LAYOUT ══ -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="sl">Navigation</div>
+    <div class="si active" onclick="nav('verify')"><i class="ti ti-checklist"></i> Verify Branches</div>
+    <div class="si" onclick="nav('about')"><i class="ti ti-info-circle"></i> About</div>
+    <hr class="sdiv">
+    <div class="sl">Environments</div>
+    <div class="si" onclick="quickEnv('SAT')">        <i class="ti ti-test-pipe" style="color:var(--teal)"></i>  SAT</div>
+    <div class="si" onclick="quickEnv('UAT_EMEA')">  <i class="ti ti-world" style="color:var(--accent)"></i>    UAT · EMEA</div>
+    <div class="si" onclick="quickEnv('UAT_MENA')">  <i class="ti ti-world" style="color:var(--accent)"></i>    UAT · MENA</div>
+    <div class="si" onclick="quickEnv('UAT_AMER')">  <i class="ti ti-world" style="color:var(--accent)"></i>    UAT · AMER</div>
+    <div class="si" onclick="quickEnv('PROD_EMEA')"> <i class="ti ti-rocket" style="color:var(--red)"></i>      PROD · EMEA</div>
+    <div class="si" onclick="quickEnv('PROD_MENA')"> <i class="ti ti-rocket" style="color:var(--red)"></i>      PROD · MENA</div>
+    <div class="si" onclick="quickEnv('PROD_AMER')"> <i class="ti ti-rocket" style="color:var(--red)"></i>      PROD · AMER</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main id="main-content">
+    <!-- rendered by JS -->
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// PAT — memory only, never in source
+// ═══════════════════════════════════════════════════════════
+let _pat = '';
+
+function onPatInput(val) {
+  _pat = val.trim();
+  const st  = document.getElementById('hpat-status');
+  const txt = document.getElementById('hpat-status-txt');
+  if (_pat.length >= 20) {
+    st.className  = 'hpat-status ok';
+    txt.textContent = 'PAT set';
+  } else {
+    st.className  = 'hpat-status missing';
+    txt.textContent = _pat.length ? 'Too short' : 'No PAT';
+  }
+}
+
+function togglePatVis() {
+  const inp  = document.getElementById('hpat-input');
+  const icon = document.getElementById('eye-icon');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    icon.className = 'ti ti-eye-off';
+  } else {
+    inp.type = 'password';
+    icon.className = 'ti ti-eye';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Config
+// ═══════════════════════════════════════════════════════════
+// AUTO-GENERATED FROM config_github.yaml — do not hand-edit below this line.
+// Run: python sync_config.py  (regenerates this block from the YAML)
+// ── CONFIG:START ──
+const CONFIG = {
+  projects: {
+    CRE: {
+      repository: { owner: 'tr', name: 'a208263_ocre-app-ce-stg-sdm', description: 'Content Rate Extract' },
+      environments: {
+        SAT: { description: 'System Acceptance Test', trigger_branch: ['trigger/sat-lb','trigger/sat-i','trigger/sat-iv'] },
+        UAT_EMEA: { description: 'User Acceptance Test - EMEA', trigger_branch: ['trigger/uat-lb-ii','trigger/uat-ii'] },
+        UAT_AMER: { description: 'User Acceptance Test - AMER', trigger_branch: ['trigger/uat-lb-i','trigger/uat-i','trigger/uat-iv-lb','trigger/uat-iv'] },
+        UAT_MENA: { description: 'User Acceptance Test - MENA', trigger_branch: ['trigger/uat-x-lb','trigger/uat-x'] },
+        PROD_EMEA: { description: 'Production - EMEA', trigger_branch: ['trigger/prd-lb-ii','trigger/prd-ii'] },
+        PROD_AMER: { description: 'Production - AMER', trigger_branch: ['trigger/prd-i-lb','trigger/prd-i','trigger/prd-iv-lb','trigger/prd-iv'] },
+        PROD_MENA: { description: 'Production - MENA', trigger_branch: ['trigger/prd-x-lb','trigger/prd-x'] }
+      }
+    }
+  }
+};
+// ── CONFIG:END ──
+
+const VERIFY_FILES = [
+  { file: 'version.txt',      label: 'version.txt',               expected: (v,b,c) => v,         jsonField: null,  color: 'var(--accent)', icon: 'ti-file-text' },
+  { file: 'action-info.txt',  label: 'action-info.txt',           expected: (v,b,c) => b,         jsonField: null,  color: 'var(--teal)',   icon: 'ti-file-text' },
+  { file: 'action-info.json', label: "action-info.json ['tag']",  expected: (v,b,c) => c,         jsonField: 'tag', color: 'var(--amber)',  icon: 'ti-braces' },
+  { file: 'app-version.txt',  label: 'app-version.txt',           expected: (v,b,c) => `${v}-${b}`, jsonField: null, color: 'var(--green)', icon: 'ti-file-text' },
+  { file: 'git-commit.txt',   label: 'git-commit.txt',            expected: (v,b,c) => c,         jsonField: null,  color: 'var(--red)',    icon: 'ti-git-commit' },
+];
+
+const GITHUB_API = 'https://api.github.com/repos';
+let logLines = [];
+
+// ═══════════════════════════════════════════════════════════
+// Navigation
+// ═══════════════════════════════════════════════════════════
+let currentView = 'verify';
+
+function nav(view) {
+  currentView = view;
+  document.querySelectorAll('aside .si').forEach(el => el.classList.remove('active'));
+  const match = [...document.querySelectorAll('aside .si')].find(el => el.getAttribute('onclick') === `nav('${view}')`);
+  if (match) match.classList.add('active');
+  render();
+}
+
+function quickEnv(env) {
+  currentView = 'verify';
+  document.querySelectorAll('aside .si').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('aside .si')[0].classList.add('active');
+  render();
+  // Set the env dropdown after render
+  setTimeout(() => {
+    const sel = document.getElementById('sel-env');
+    if (sel) { sel.value = env; }
+  }, 50);
+}
+
+// ═══════════════════════════════════════════════════════════
+// GitHub helpers
+// ═══════════════════════════════════════════════════════════
+async function ghFetch(path, params = {}) {
+  const url = new URL(`${GITHUB_API}/${path}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  return fetch(url, {
+    headers: { Authorization: `token ${_pat}`, Accept: 'application/vnd.github+json' }
+  });
+}
+
+async function getLatestRun(owner, repo, branch) {
+  const r = await ghFetch(`${owner}/${repo}/actions/runs`, { branch, per_page: 1 });
+  if (!r.ok) throw new Error(`Workflow runs API: ${r.status} ${r.statusText}`);
+  const d = await r.json();
+  if (!d.workflow_runs?.length) throw new Error(`No workflow runs found on branch '${branch}'`);
+  const run = d.workflow_runs[0];
+  return { id: run.id, build: String(run.run_number), commit: run.head_sha, status: run.status, branch: run.head_branch };
+}
+
+async function getFileContent(owner, repo, branch, filePath) {
+  const r = await ghFetch(`${owner}/${repo}/contents/${filePath}`, { ref: branch });
+  if (r.status === 404) return { content: null, error: `'${filePath}' not found on '${branch}'` };
+  if (!r.ok)            return { content: null, error: `API ${r.status}` };
+  const d = await r.json();
+  return { content: atob(d.content.replace(/\n/g, '')).trim(), error: null };
+}
+
+// ═══════════════════════════════════════════════════════════
+// Structured log
+// ═══════════════════════════════════════════════════════════
+// logSections: array of { title, rows[] }
+// row: { type: 'run'|'file-hd'|'branch', ... }
+let logSections = [];
+let _logPass = 0, _logFail = 0, _logTotal = 0;
+
+function logReset() {
+  logSections = [];
+  _logPass = 0; _logFail = 0; _logTotal = 0;
+}
+
+function logSection(title) {
+  logSections.push({ title, rows: [] });
+  flushLog();
+}
+
+function logRow(row) {
+  if (!logSections.length) logSection('General');
+  logSections[logSections.length - 1].rows.push(row);
+  flushLog();
+}
+
+function flushLog() {
+  const el = document.getElementById('log-area');
+  if (!el) return;
+  el.innerHTML = logSections.map(sec => `
+    <div class="log-section">
+      <div class="log-sec-hd">${escHtml(sec.title)}</div>
+      ${sec.rows.map(renderLogRow).join('')}
+    </div>`).join('') + renderLogFooter();
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderLogRow(row) {
+  if (row.type === 'run') {
+    return `<div class="log-row">
+      <span class="log-icon lc-muted">·</span>
+      <span class="lc-muted" style="min-width:90px;flex-shrink:0">${escHtml(row.label)}</span>
+      <span class="log-sep">:</span>
+      <span class="${row.ok ? 'lc-blue' : 'lc-amber'}" style="font-weight:600">${escHtml(row.value)}</span>
+    </div>`;
+  }
+  if (row.type === 'branch') {
+    const icon  = row.status === 'pass' ? '<span class="lc-green" style="font-size:13px">✔</span>'
+                : row.status === 'fail' ? '<span class="lc-red" style="font-size:13px">✖</span>'
+                : '<span class="lc-muted">–</span>';
+    const valCls = row.status === 'pass' ? 'lc-green' : row.status === 'fail' ? 'lc-red' : 'lc-muted';
+    return `<div class="log-row">
+      <span class="log-icon">${icon}</span>
+      <span class="log-branch">${escHtml(row.branch)}</span>
+      <span class="log-sep">→</span>
+      <span class="log-val ${valCls}">${escHtml(row.value)}</span>
+    </div>`;
+  }
+  if (row.type === 'info') {
+    return `<div class="log-row">
+      <span class="log-icon" style="color:var(--text3)">i</span>
+      <span class="lc-muted" style="font-style:italic">${escHtml(row.msg)}</span>
+    </div>`;
+  }
+  if (row.type === 'error') {
+    return `<div class="log-row" style="background:var(--red-l);margin:0 -16px;padding:4px 16px;border-radius:4px;">
+      <span class="log-icon lc-red">✖</span>
+      <span class="lc-red" style="font-weight:600">${escHtml(row.msg)}</span>
+    </div>`;
+  }
+  return '';
+}
+
+function renderLogFooter() {
+  if (_logTotal === 0) return '';
+  const verdict = _logFail === 0
+    ? `<span class="log-footer-verdict lfv-pass">✔ ALL PASSED</span>`
+    : `<span class="log-footer-verdict lfv-fail">✖ ${_logFail} FAILED</span>`;
+  return `<div class="log-footer">
+    <span class="log-footer-stat lc-green">${_logPass} passed</span>
+    <span class="lc-dim">·</span>
+    <span class="log-footer-stat lc-red">${_logFail} failed</span>
+    <span class="lc-dim">·</span>
+    <span class="log-footer-stat lc-muted">${_logTotal} total</span>
+    ${verdict}
+  </div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyLog() {
+  const el = document.getElementById('log-area');
+  if (el) navigator.clipboard?.writeText(el.innerText).then(() => alert('Log copied!'));
+}
+
+function setProgress(pct) {
+  const el = document.getElementById('progress-fill');
+  if (el) el.style.width = pct + '%';
+}
+
+// ═══════════════════════════════════════════════════════════
+// Render
+// ═══════════════════════════════════════════════════════════
+function render() {
+  const main = document.getElementById('main-content');
+  if (currentView === 'about') { main.innerHTML = renderAbout(); return; }
+  main.innerHTML = renderVerify();
+}
+
+function renderAbout() {
+  return `
+  <div>
+    <div class="section-title"><i class="ti ti-info-circle" style="color:var(--accent)"></i> About</div>
+    <div class="section-desc mt2">Trigger Branch Verifier — CRE (Content Rate Extract)</div>
+    <div class="card mt4">
+      <div class="card-hd"><i class="ti ti-list" style="color:var(--text3)"></i><span class="card-title">Verified files per trigger branch</span></div>
+      <div style="overflow-x:auto">
+        <table class="ptbl">
+          <thead><tr><th>File</th><th>Expected value</th><th>Method</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">version.txt</td>     <td class="mono">{release-version}</td>          <td>Plain text match</td></tr>
+            <tr><td class="mono">action-info.txt</td> <td class="mono">{build-number}</td>             <td>Plain text match</td></tr>
+            <tr><td class="mono">action-info.json</td><td class="mono">json['tag'] == {commit-sha}</td><td>JSON field match</td></tr>
+            <tr><td class="mono">app-version.txt</td> <td class="mono">{version}-{build}</td>          <td>Plain text match</td></tr>
+            <tr><td class="mono">git-commit.txt</td>  <td class="mono">{commit-sha}</td>               <td>Plain text match</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card mt3">
+      <div class="card-hd"><i class="ti ti-git-branch" style="color:var(--text3)"></i><span class="card-title">Branch naming convention</span></div>
+      <div class="card-body" style="font-size:12px;color:var(--text2);line-height:1.8">
+        Pattern: <code class="mono" style="background:var(--bg3);padding:2px 6px;border-radius:4px">trigger/&lt;env&gt;-&lt;region&gt;[-lb]</code><br><br>
+        <strong>env:</strong> sat · uat · prd &nbsp;&nbsp; <strong>region:</strong> i (AMER/AWS) · ii (EMEA/AWS) · iv (AMER/OCI) · x (MENA/OCI) &nbsp;&nbsp; <strong>-lb:</strong> Liquibase pipeline
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderVerify() {
+  return `
+  <div>
+    <div class="section-title"><i class="ti ti-checklist" style="color:var(--accent)"></i> Verify Trigger Branches</div>
+    <div class="section-desc mt2">Select environment and release version, then run verification against the GitHub repository.</div>
+
+    <!-- PAT warning -->
+    <div id="pat-warn" class="sbar sbar-warn mt3" style="display:${_pat.length >= 20 ? 'none' : 'flex'}">
+      <i class="ti ti-alert-triangle"></i>
+      Paste your GitHub PAT in the header field above before running verification.
+    </div>
+
+    <!-- Parameters card -->
+    <div class="card mt3" id="params-card">
+      <div class="card-hd">
+        <i class="ti ti-settings" style="color:var(--text3)"></i>
+        <span class="card-title">Verification Parameters</span>
+      </div>
+      <div class="card-body">
+        <div class="grid4">
+          <div class="field">
+            <label>Project</label>
+            <select id="sel-project">
+              <option value="CRE">CRE — Content Rate Extract</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Environment</label>
+            <select id="sel-env">
+              <option value="SAT">SAT — System Acceptance Test</option>
+              <option value="UAT_EMEA">UAT_EMEA — User Acceptance Test · EMEA</option>
+              <option value="UAT_MENA">UAT_MENA — User Acceptance Test · MENA</option>
+              <option value="UAT_AMER">UAT_AMER — User Acceptance Test · AMER</option>
+              <option value="PROD_EMEA">PROD_EMEA — Production · EMEA</option>
+              <option value="PROD_MENA">PROD_MENA — Production · MENA</option>
+              <option value="PROD_AMER">PROD_AMER — Production · AMER</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Release Version</label>
+            <div class="combo" id="version-combo">
+              <input type="text" id="inp-version" placeholder="e.g. 2026.06.00 or 2026.06.01" autocomplete="off"
+                     onfocus="openVersionDropdown()" oninput="filterVersionDropdown()">
+              <button type="button" class="combo-toggle" onclick="toggleVersionDropdown(event)" tabindex="-1">
+                <i class="ti ti-chevron-down"></i>
+              </button>
+              <div class="combo-list" id="version-dropdown">
+                <div class="combo-opt" onclick="pickVersion('2026.01.00')">2026.01.00</div>
+                <div class="combo-opt" onclick="pickVersion('2026.02.00')">2026.02.00</div>
+                <div class="combo-opt" onclick="pickVersion('2026.03.00')">2026.03.00</div>
+                <div class="combo-opt" onclick="pickVersion('2026.04.00')">2026.04.00</div>
+                <div class="combo-opt" onclick="pickVersion('2026.05.00')">2026.05.00</div>
+                <div class="combo-opt" onclick="pickVersion('2026.06.00')">2026.06.00</div>
+                <div class="combo-opt" onclick="pickVersion('2026.07.00')">2026.07.00</div>
+                <div class="combo-opt" onclick="pickVersion('2026.08.00')">2026.08.00</div>
+                <div class="combo-opt" onclick="pickVersion('2026.09.00')">2026.09.00</div>
+                <div class="combo-opt" onclick="pickVersion('2026.10.00')">2026.10.00</div>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button type="button" class="btn btn-primary" id="btn-run" onclick="runVerification()">
+              <i class="ti ti-player-play"></i> Run Verification
+            </button>
+          </div>
+        </div>
+        <div class="progress-bar" id="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results placeholder -->
+    <div id="results-area"></div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Verification
+// ═══════════════════════════════════════════════════════════
+async function runVerification() {
+  if (_pat.length < 20) {
+    document.getElementById('hpat-input').focus();
+    const warn = document.getElementById('pat-warn');
+    if (warn) warn.style.display = 'flex';
+    return;
+  }
+
+  const project    = document.getElementById('sel-project').value;
+  const environment= document.getElementById('sel-env').value;
+  const releaseVer = document.getElementById('inp-version').value.trim();
+
+  const versionPattern = /^\d{4}\.\d{2}\.\d{2}$/;
+  if (!releaseVer || !versionPattern.test(releaseVer)) {
+    const sel = document.getElementById('inp-version');
+    sel.focus();
+    sel.style.borderColor = 'var(--red)';
+    setTimeout(() => { const el = document.getElementById('inp-version'); if(el) el.style.borderColor = ''; }, 2000);
+    return;
+  }
+
+  const projCfg = CONFIG.projects[project];
+  const envCfg  = projCfg.environments[environment];
+  const { owner, name: repo } = projCfg.repository;
+  const branches   = envCfg.trigger_branch;
+  const relBranch  = `release/${releaseVer}`;
+
+  logReset();
+
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader spin"></i> Verifying…';
+
+  const pb = document.getElementById('progress-bar');
+  pb.classList.add('show');
+  setProgress(8);
+
+  // Show skeleton results area
+  document.getElementById('results-area').innerHTML = buildResultsSkeleton(environment, envCfg.description, relBranch, branches);
+
+  // ── Section 1: Run info ──
+  logSection(`Workflow Run · ${relBranch}`);
+  logRow({ type: 'info', msg: `Project: ${project}  ·  Env: ${environment}  ·  Branches: ${branches.join(', ')}` });
+  logRow({ type: 'info', msg: `Fetching latest workflow run…` });
+  setProgress(15);
+
+  let runData;
+  try {
+    runData = await getLatestRun(owner, repo, relBranch);
+  } catch(e) {
+    logRow({ type: 'error', msg: e.message });
+    showResultsError(e.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-player-play"></i> Run Verification';
+    setProgress(0);
+    pb.classList.remove('show');
+    return;
+  }
+
+  const { id, build, commit, status, branch: runBranch } = runData;
+  logRow({ type: 'run', label: 'Run ID',  value: String(id),           ok: true });
+  logRow({ type: 'run', label: 'Build',   value: `#${build}`,          ok: true });
+  logRow({ type: 'run', label: 'Commit',  value: commit,               ok: true });
+  logRow({ type: 'run', label: 'Status',  value: status,               ok: status === 'completed' });
+  logRow({ type: 'run', label: 'Branch',  value: runBranch,            ok: true });
+  setProgress(22);
+
+  // Populate run meta
+  document.getElementById('ri-id').textContent     = id;
+  document.getElementById('ri-build').textContent  = `#${build}`;
+  document.getElementById('ri-status').textContent = status;
+  document.getElementById('ri-branch').textContent = runBranch;
+  document.getElementById('ri-commit').textContent = commit;
+  document.getElementById('ri-version').textContent= releaseVer;
+
+  // ── Section 2+: one section per file ──
+  const totalChecks = VERIFY_FILES.length * branches.length;
+  let globalPass = 0, globalFail = 0;
+
+  for (let fi = 0; fi < VERIFY_FILES.length; fi++) {
+    const fdef     = VERIFY_FILES[fi];
+    const expected = fdef.expected(releaseVer, build, commit);
+    const expShort = expected.length > 44 ? expected.slice(0,16) + '…' + expected.slice(-8) : expected;
+
+    setFileLoading(fi, expected);
+    logSection(`${fdef.label}  ·  expected: ${expShort}`);
+    setProgress(22 + ((fi / VERIFY_FILES.length) * 70));
+
+    let filePass = 0;
+
+    for (let bi = 0; bi < branches.length; bi++) {
+      const branch = branches[bi];
+      const { content: rawContent, error } = await getFileContent(owner, repo, branch, fdef.file);
+
+      if (error) {
+        logRow({ type: 'branch', branch, status: 'fail', value: error });
+        setBranchRow(fi, bi, 'fail', error);
+        globalFail++;
+        _logFail++; _logTotal++;
+        flushLog();
+        continue;
+      }
+
+      let actual = rawContent;
+      if (fdef.jsonField) {
+        try {
+          actual = JSON.parse(rawContent)[fdef.jsonField] ?? '';
+        } catch(e) {
+          logRow({ type: 'branch', branch, status: 'fail', value: 'JSON parse error' });
+          setBranchRow(fi, bi, 'fail', 'JSON parse error');
+          globalFail++;
+          _logFail++; _logTotal++;
+          flushLog();
+          continue;
+        }
+      }
+
+      if (actual === expected) {
+        const display = actual.length > 56 ? actual.slice(0,12) + '…' + actual.slice(-8) : actual;
+        logRow({ type: 'branch', branch, status: 'pass', value: display });
+        setBranchRow(fi, bi, 'pass', display);
+        filePass++;
+        globalPass++;
+        _logPass++; _logTotal++;
+      } else {
+        const display = actual.length > 56 ? actual.slice(0,12) + '…' : actual;
+        logRow({ type: 'branch', branch, status: 'fail', value: `got: ${display}` });
+        setBranchRow(fi, bi, 'fail', `found: ${display}`);
+        globalFail++;
+        _logFail++; _logTotal++;
+      }
+      flushLog();
+    }
+
+    setFileResult(fi, filePass, branches.length);
+  }
+
+  setProgress(100);
+  flushLog(); // final render with footer
+
+  // Summary
+  document.getElementById('sum-pass').textContent  = globalPass;
+  document.getElementById('sum-fail').textContent  = globalFail;
+  document.getElementById('sum-total').textContent = totalChecks;
+  const verd = document.getElementById('sum-verdict');
+  if (globalFail === 0) {
+    verd.className = 'sum-verdict sv-pass';
+    verd.innerHTML = '<i class="ti ti-circle-check"></i> ALL PASSED';
+  } else {
+    verd.className = 'sum-verdict sv-fail';
+    verd.innerHTML = `<i class="ti ti-circle-x"></i> ${globalFail} FAILED`;
+  }
+  document.getElementById('summary-row').style.display = 'flex';
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-refresh"></i> Re-run';
+}
+
+// ═══════════════════════════════════════════════════════════
+// DOM builders
+// ═══════════════════════════════════════════════════════════
+function buildResultsSkeleton(env, desc, relBranch, branches) {
+  const envTag = env.startsWith('PROD') ? `<span class="tag tag-red">${env}</span>` :
+                 env.startsWith('UAT')  ? `<span class="tag tag-amber">${env}</span>` :
+                                          `<span class="tag tag-teal">${env}</span>`;
+
+  const fileCells = VERIFY_FILES.map((f, fi) => `
+    <div class="file-row" id="frow-${fi}">
+      <div class="file-row-hd" onclick="toggleFileRow(${fi})">
+        <div class="file-icon-wrap" style="background:color-mix(in srgb,${f.color} 12%,white);color:${f.color}">
+          <i class="ti ${f.icon}"></i>
+        </div>
+        <span class="file-name">${f.label}</span>
+        <span class="file-expected" id="fe-${fi}">—</span>
+        <span class="file-badge fb-pend" id="fb-${fi}">PENDING</span>
+        <i class="ti ti-chevron-right chev" id="chev-${fi}" style="margin-left:6px"></i>
+      </div>
+      <div class="branch-rows" id="brows-${fi}">
+        ${branches.map((b, bi) => `
+          <div class="br-row" id="br-${fi}-${bi}">
+            <i class="ti ti-minus" id="bri-${fi}-${bi}" style="color:var(--text3);font-size:13px;width:16px;text-align:center;flex-shrink:0"></i>
+            <span class="br-name">${b}</span>
+            <span class="br-val" id="brv-${fi}-${bi}">—</span>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  return `
+  <div class="card mt3" id="run-card">
+    <div class="card-hd">
+      <i class="ti ti-activity" style="color:var(--text3)"></i>
+      <span class="card-title">Latest Workflow Run</span>
+      <span class="card-sub">${relBranch}</span>
+    </div>
+    <div class="run-meta" id="run-meta">
+      <div class="run-kv"><div class="run-k">Run ID</div>   <div class="run-v" id="ri-id">—</div></div>
+      <div class="run-kv"><div class="run-k">Build #</div>  <div class="run-v ok" id="ri-build">—</div></div>
+      <div class="run-kv"><div class="run-k">Status</div>   <div class="run-v" id="ri-status">—</div></div>
+      <div class="run-kv"><div class="run-k">Branch</div>   <div class="run-v sha" id="ri-branch">—</div></div>
+      <div class="run-kv"><div class="run-k">Commit</div>   <div class="run-v sha" id="ri-commit">—</div></div>
+      <div class="run-kv"><div class="run-k">Version</div>  <div class="run-v" id="ri-version">—</div></div>
+    </div>
+  </div>
+
+  <div class="card mt3">
+    <div class="card-hd">
+      <i class="ti ti-file-check" style="color:var(--text3)"></i>
+      <span class="card-title">File Verification</span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        ${envTag}
+        <span class="tag tag-gray">${desc}</span>
+        <span class="mono" style="color:var(--text3)">${branches.length} branch${branches.length > 1 ? 'es' : ''}</span>
+      </div>
+    </div>
+    ${fileCells}
+    <div class="summary-row" id="summary-row" style="display:none">
+      <div class="sum-stat"><div class="sum-num" id="sum-pass" style="color:var(--green)">0</div><div class="sum-lbl">Passed</div></div>
+      <div class="sum-div"></div>
+      <div class="sum-stat"><div class="sum-num" id="sum-fail" style="color:var(--red)">0</div><div class="sum-lbl">Failed</div></div>
+      <div class="sum-div"></div>
+      <div class="sum-stat"><div class="sum-num" id="sum-total" style="color:var(--text3)">0</div><div class="sum-lbl">Total</div></div>
+      <div class="sum-verdict sv-pass" id="sum-verdict" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="card mt3">
+    <div class="card-hd">
+      <i class="ti ti-list-details" style="color:var(--accent)"></i>
+      <span class="card-title">Run Log</span>
+      <span class="card-sub" id="log-summary-label"></span>
+      <button type="button" class="btn btn-sm" style="margin-left:auto" onclick="copyLog()"><i class="ti ti-copy"></i> Copy log</button>
+    </div>
+    <div style="padding:0;border-top:1px solid var(--border)">
+      <div class="log-area" id="log-area"></div>
+    </div>
+  </div>`;
+}
+
+function showResultsError(msg) {
+  const area = document.getElementById('results-area');
+  area.innerHTML = `<div class="sbar sbar-err mt3"><i class="ti ti-circle-x"></i> ${escHtml(msg)}</div>`;
+}
+
+function toggleFileRow(fi) {
+  document.getElementById(`brows-${fi}`).classList.toggle('open');
+  document.getElementById(`chev-${fi}`).classList.toggle('open');
+}
+
+function setFileLoading(fi, expected) {
+  document.getElementById(`fb-${fi}`).className = 'file-badge fb-load';
+  document.getElementById(`fb-${fi}`).textContent = '…';
+  document.getElementById(`fe-${fi}`).textContent = `expected: ${expected.length > 30 ? expected.slice(0,12)+'…'+expected.slice(-6) : expected}`;
+  document.getElementById(`brows-${fi}`).classList.add('open');
+  document.getElementById(`chev-${fi}`).classList.add('open');
+}
+
+function setFileResult(fi, passed, total) {
+  const badge = document.getElementById(`fb-${fi}`);
+  if (passed === total) {
+    badge.className = 'file-badge fb-pass';
+    badge.innerHTML = '<i class="ti ti-check"></i> PASS';
+  } else {
+    badge.className = 'file-badge fb-fail';
+    badge.innerHTML = `<i class="ti ti-x"></i> ${total - passed}/${total}`;
+  }
+}
+
+function setBranchRow(fi, bi, status, val) {
+  const row  = document.getElementById(`br-${fi}-${bi}`);
+  const icon = document.getElementById(`bri-${fi}-${bi}`);
+  const valEl= document.getElementById(`brv-${fi}-${bi}`);
+  row.classList.add(status);
+  icon.className = status === 'pass'
+    ? 'ti ti-circle-check' + ' ' + '' 
+    : 'ti ti-circle-x';
+  icon.style.color = status === 'pass' ? 'var(--green)' : 'var(--red)';
+  valEl.textContent = val;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// Release Version combobox
+// ═══════════════════════════════════════════════════════════
+function openVersionDropdown() {
+  const list = document.getElementById('version-dropdown');
+  if (list) list.classList.add('open');
+}
+function toggleVersionDropdown(e) {
+  e.stopPropagation();
+  const list = document.getElementById('version-dropdown');
+  if (!list) return;
+  list.classList.toggle('open');
+  if (list.classList.contains('open')) document.getElementById('inp-version').focus();
+}
+function filterVersionDropdown() {
+  const q = document.getElementById('inp-version').value.trim().toLowerCase();
+  const opts = document.querySelectorAll('#version-dropdown .combo-opt');
+  let anyVisible = false;
+  opts.forEach(o => {
+    const match = !q || o.textContent.toLowerCase().includes(q);
+    o.classList.toggle('hidden', !match);
+    if (match) anyVisible = true;
+  });
+  openVersionDropdown();
+}
+function pickVersion(v) {
+  const input = document.getElementById('inp-version');
+  input.value = v;
+  input.style.borderColor = '';
+  document.querySelectorAll('#version-dropdown .combo-opt').forEach(o => o.classList.remove('hidden'));
+  closeVersionDropdown();
+}
+function closeVersionDropdown() {
+  const list = document.getElementById('version-dropdown');
+  if (list) list.classList.remove('open');
+}
+document.addEventListener('click', (e) => {
+  const combo = document.getElementById('version-combo');
+  if (combo && !combo.contains(e.target)) closeVersionDropdown();
+});
+
+document.addEventListener('DOMContentLoaded', () => render());
+</script>
+</body>
+</html>

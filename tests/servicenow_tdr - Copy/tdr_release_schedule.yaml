@@ -1,0 +1,106 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# TDR Release Schedule — Data Refresh Windows
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# OWNER:    Release Management team
+# UPDATED:  When new sprint dates are confirmed
+#
+# RULES:
+#   - Date format MUST be DD-MM-YYYY
+#   - UAT & QA Data refresh activities begin after PROD sign off
+#   - generateDumpProd -- dump generation start date from PROD (also UAT/QA data backup date)
+#   - uatDataRefresh   -- Oracle Support start date for UAT refresh
+#   - qaDataRefresh    -- Oracle Support start date for QA refresh
+#   - Do NOT change deployment_times without consulting the RM team
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+deployment_times:
+  # QA refresh: Oracle runs 2 consecutive days (including weekends)
+  qa_oracle_start:   "08:00:00"
+  qa_oracle_days:    2
+  qa_tdr_start:      "12:00:00"
+  qa_tdr_end:        "23:30:00"
+
+  # UAT refresh: Oracle runs 4 consecutive days (including weekends)
+  uat_oracle_start:  "08:00:00"
+  uat_oracle_days:   4
+  uat_tdr_start:     "12:00:00"   # TDR starts next business day after Oracle ends
+  uat_tdr_end:       "21:00:00"   # TDR runs 2 business days
+
+  # PROD dump generation: starts at noon, ends 9 PM next day (~33.5 hrs)
+  dump_start:        "12:00:00"
+  dump_end_next_day: "21:00:00"
+
+releases:
+  "2026.01.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "09-02-2026"
+    uatDataRefresh:   "13-02-2026"
+    qaDataRefresh:    "21-02-2026"
+
+  "2026.02.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "09-03-2026"
+    uatDataRefresh:   "13-03-2026"
+    qaDataRefresh:    "21-03-2026"
+
+  "2026.03.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "06-04-2026"
+    uatDataRefresh:   "10-04-2026"
+    qaDataRefresh:    "18-04-2026"
+
+  "2026.04.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "11-05-2026"
+    uatDataRefresh:   "15-05-2026"
+    qaDataRefresh:    "23-05-2026"
+
+  "2026.05.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "08-06-2026"
+    uatDataRefresh:   "10-06-2026"
+    qaDataRefresh:    "20-06-2026"
+
+  "2026.06.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "06-07-2026"
+    uatDataRefresh:   "08-07-2026"
+    qaDataRefresh:    "18-07-2026"
+
+  "2026.07.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "10-08-2026"
+    uatDataRefresh:   "12-08-2026"
+    qaDataRefresh:    "22-08-2026"
+
+  "2026.08.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "07-09-2026"
+    uatDataRefresh:   "11-09-2026"
+    qaDataRefresh:    "19-09-2026"
+
+  "2026.09.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "05-10-2026"
+    uatDataRefresh:   "09-10-2026"
+    qaDataRefresh:    "17-10-2026"
+
+  "2026.10.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "09-11-2026"
+    uatDataRefresh:   "13-11-2026"
+    qaDataRefresh:    "21-11-2026"
+
+  "2026.11.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "07-12-2026"
+    uatDataRefresh:   "11-12-2026"
+    qaDataRefresh:    "19-12-2026"
+
+  "2026.12.00":
+    buildVersion:     "Build#0"
+    generateDumpProd: "11-01-2027"
+    uatDataRefresh:   "15-01-2027"
+    qaDataRefresh:    "23-01-2027"

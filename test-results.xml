@@ -1,0 +1,111 @@
+<testsuites id="" name="" tests="2" failures="0" skipped="0" errors="0" time="252.11531000000002">
+<testsuite name="tests\sso_setup.ts" timestamp="2026-07-13T11:02:16.867Z" hostname="setup" tests="1" failures="0" skipped="0" time="0.875" errors="0">
+<testcase name="Authenticate via SSO/PingID" classname="tests\sso_setup.ts" time="0.875">
+<system-out>
+<![CDATA[✓ auth_servicenow.json is fresh (9m old) — skipping SSO login
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="tests\servicenow_tdr\changeRequest.spec.ts" timestamp="2026-07-13T11:02:16.867Z" hostname="TDR" tests="1" failures="0" skipped="0" time="244.448" errors="0">
+<testcase name="TDR Change Request Creation — All Configs (Parallel) › [GENERATE_DUMP_PROD] CR Creation and CTask Management" classname="tests\servicenow_tdr\changeRequest.spec.ts" time="244.448">
+<system-out>
+<![CDATA[📋 TDR Release Version: 2026.07.00
+✓ [GENERATE_DUMP_PROD] Navigated to ServiceNow
+  ...attempt 10
+✓ "Create New" found after 13 scroll attempts
+✓ Clicked Create New
+✓ Selected Normal change model
+✓ CR form loaded
+✓ Category: Enterprise business application
+✓ Selected: ONESOURCE Indirect Tax Data Repository-Preprod
+✓ Selected: cdp0797a1
+✓ Additional approval group selected: APP-ADMIN-OIT-CONTENT-PROCESSING
+✓ Additional approval groups verified
+✓ Selected: IDT-RELEASE-MGMT-TR
+✓ Selected: Radha Krishna Murthy Pachipulusu
+✓ Main form filled
+✓ Planning tab
+✓ Planning fields filled
+✓ Schedule tab
+✓ Filled Planned Start Date
+✓ Filled Planned End Date
+✓ CR Number: CHG0240620
+✓ Form submitted
+⚠ sys_id not captured — step 7 will use list-search fallback
+✓ CR CHG0240620 (2026.07.00 / GENERATE_DUMP_PROD) saved to registry
+✓ Post-submit redirect complete (sn_chg_model_ui_landing.do)
+  → Slow path: searching list (no sys_id for CHG0240620)
+✓ "Open (under Change)" found after 0 scroll attempts
+  ✓ Open Change Requests list loaded
+  ✓ Found CHG0240620 in list
+✓ CR CHG0240620 (2026.07.00 / GENERATE_DUMP_PROD) saved to registry
+  Sys ID: 8b5110393b828b589411c2c643e45aff
+✓ sys_id captured from CR URL: 8b5110393b828b589411c2c643e45aff
+✓ Opened CR CHG0240620 — ready for CTask creation
+Creating 1 CTasks…
+
+[CTask 1/1] APP-ADMIN-OIT-CONTENT-PROCESSING
+✓ Change Tasks tab
+✓ New CTask button
+✓ Selected: APP-ADMIN-OIT-CONTENT-PROCESSING
+✓ Selected: Vetcha Venkata sai
+✓ Filled Start Date
+✓ Filled End Date
+✓ Form submitted
+✓ CTask 1 (APP-ADMIN-OIT-CONTENT-PROCESSING) created
+
+✓ All 1 CTasks created
+✓ Submit for Assess clicked
+✓ Submit for Assess complete — CR in Assess state
+✓ Clicked Risk Assessment (direct)
+✓ Found Risk Assessment frame (3/3 markers) — URL: https://trenterprisedev.service-now.com/assessment_take2.do?sysparm_assessable_s
+
+[Q1] Looking for label matching "expected impact"
+  Found 1 matching labels
+  ✅ expected impact → No expected impact
+
+[Q2] Looking for label matching "isolated change"
+  Found 1 matching labels
+  ✅ isolated change → Yes
+
+[Q3] Looking for label matching "tested in a lower environment"
+  Found 1 matching labels
+  ✅ tested in a lower environment → Yes
+
+[Q4] Looking for label matching "post implementation checks"
+  Found 1 matching labels
+  ✅ post implementation checks → Yes
+
+[Q5] Looking for label matching "documented recovery plan"
+  Found 1 matching labels
+  ✅ documented recovery plan → Yes
+
+[Q6] Looking for label matching "How long will it take to perform"
+  Found 1 matching labels
+  ✅ How long will it take to perform → <30 min to recover
+
+[Q7] Looking for label matching "familiar"
+  Found 1 matching labels
+  ✅ familiar → Familiar and often executed (1-3 times/mo)
+
+[Q8] Looking for label matching "impact to Redundancy"
+  Found 1 matching labels
+  ✅ impact to Redundancy → No impact to redundant systems
+
+[Q9] Looking for label matching "implemented using Automation"
+  Found 1 matching labels
+  ✅ implemented using Automation → No
+✓ Risk Assessment submitted
+✓ CR form fully loaded after risk assessment
+  → Re-navigating to CR before Request Approval (sys_id: 8b5110393b828b589411c2c643e45aff)
+✓ moveToAuthorize() called — Request Approval initiated
+✓ Page reloaded after state transition
+✓ Request Approval and Risk Assessment buttons gone — state transition confirmed
+✓ Request Approval step complete
+⏱ [GENERATE_DUMP_PROD] Total time: 4m 0s
+]]>
+</system-out>
+</testcase>
+</testsuite>
+</testsuites>
