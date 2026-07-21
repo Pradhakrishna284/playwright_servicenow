@@ -1,0 +1,42 @@
+https://www.youtube.com/watch?v=m7wAPcHzD0E
+
+Install SelectorsHub:
+Ensure SelectorsHub is installed in your browser. You can add it from the Chrome Web Store or Firefox Add-ons page.
+
+Prepare the File for Upload:
+Make sure the file you intend to upload is ready and accessible from your computer.
+
+Open Developer Tools:
+Open the browser’s developer tools by pressing F12 or right-clicking on the page and selecting "Inspect".
+
+Navigate to SelectorsHub:
+Go to the "SelectorsHub" tab within the developer tools.
+
+Enable the Debugger:
+In the SelectorsHub tab, find the "Turn on Debugger" option and enable it. 
+This will allow you to pause the execution of JavaScript on the page.
+
+Perform the File Upload:
+Follow the process on the webpage to upload your file. 
+This might involve clicking a button to open a file dialog, selecting your file, and then confirming the upload.
+
+Trigger the Pop-up:
+Complete the file upload process. As the file uploads and the pop-up appears, 
+the "Turn on Debugger" should help pause the page execution.
+
+Inspect the Pop-up:
+With the page paused, you can now inspect the pop-up element. 
+Right-click on the pop-up and select "Inspect" if it’s not already highlighted in the Elements panel.
+
+Use SelectorsHub:
+Use SelectorsHub to generate the XPath or other selectors for the elements within the pop-up. 
+SelectorsHub will display options for XPath, CSS selectors, etc.
+
+Verify and Use Selectors:
+Verify the selectors in SelectorsHub to ensure they uniquely identify the elements you need to interact with. 
+You can test these selectors directly in SelectorsHub.
+
+Resume Page Execution:
+Once you've captured the necessary selectors, you can resume the page execution by disabling the debugger.
+
+By following these steps, you can effectively handle scenarios where a pop-up appears after a file upload and capture the necessary locators using SelectorsHub.
