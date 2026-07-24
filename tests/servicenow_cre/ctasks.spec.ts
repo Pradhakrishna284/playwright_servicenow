@@ -56,8 +56,6 @@ import {
   CTASK_CONFIGURATIONS,
   getCtaskConfig,
   getCtaskDescriptions,
-  SN_BASE_URL,
-  buildNavToCrUri,
   type ConfigKey,
 } from './testDataConfig_CRE';
 import {
@@ -71,8 +69,7 @@ import {
   submitForm,
   detectCtaskPrefix,
   fillCtaskAssignment,
-  handleSSOExpiry,
-} from '../helpers';
+} from './helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -87,7 +84,7 @@ const {
 const ASSIGNMENT_GROUPS   = CTASK_CONFIGURATIONS.assignmentGroups;
 const ASSIGNED_TO_DEFAULT = CTASK_CONFIGURATIONS.assignedTo.default;
 
-const SERVICENOW_CR_URL = `${SN_BASE_URL}/change_request.do`;
+const SERVICENOW_CR_URL = 'https://trenterprise.service-now.com/change_request.do';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CTASK TARGET RESOLUTION
@@ -184,15 +181,15 @@ test.beforeAll(() => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Fast path: navigate to the CR via nav_to.do (one page load).
- * nav_to.do loads the full ServiceNow portal shell, which places the form
- * inside #gsft_main — required for all subsequent iframe interactions.
- * Navigating directly to change_request.do?sys_id=... bypasses the portal
- * shell and renders the form at page level (no #gsft_main).
+ * Fast path: navigate directly to the CR by sys_id (one page load).
  */
 async function navigateBySysId(page: Page, sysId: string): Promise<void> {
-  await page.goto(buildNavToCrUri(sysId), { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForURL(/change_request\.do/i, { timeout: T_NAV });
+  const listFilter = encodeURIComponent(
+    'active=true^short_description>=Content Rate Extract^ORDERBYshort_description',
+  );
+  const directUrl = `${SERVICENOW_CR_URL}?sys_id=${sysId}&sysparm_record_list=${listFilter}`;
+  await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await page.waitForURL(/change_request\.do(%3F|\?).*sys_id(%3D|=)/i, { timeout: T_NAV });
   await page.waitForLoadState('domcontentloaded');
 }
 
@@ -312,50 +309,29 @@ test.describe('CRE — CTask Creation', () => {
 
       const { environment: env, region } = testData;
 
-      // ── 1. Open Change Request ──────────────────────────────────────────────
-      // Navigate directly to the CR — no separate home-page step needed.
-      // If sys_id is available, go straight to the CR URL (fast, 1 page load).
-      // If not, navigate to ServiceNow home first, then use list search.
-      // Session check runs after domcontentloaded — before any waitForURL call —
-      // to avoid "Target page, context or browser has been closed" from PingID.
-      await test.step('1. Open Change Request', async () => {
-        const sysId = getSysIdForCr(crNumber);
+      // ── 1. Navigate to application ─────────────────────────────────────────
+      await test.step('1. Navigate to application', async () => {
+        await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 120_000 });
+        await page.waitForURL(/trenterprise\.service-now\.com/);
+        await page.waitForLoadState('domcontentloaded');
+        console.log(`✓ [${label}] Navigated to ServiceNow`);
+      });
 
+      // ── 2. Open Change Request ─────────────────────────────────────────────
+      await test.step('2. Open Change Request', async () => {
+        const sysId = getSysIdForCr(crNumber);
         if (sysId) {
           console.log(`  → Fast path: navigating by sys_id (${sysId})`);
-          const listFilter = encodeURIComponent(
-            'active=true^short_description>=Content Rate Extract^ORDERBYshort_description',
-          );
-          await page.goto(
-            `${SERVICENOW_CR_URL}?sys_id=${sysId}&sysparm_record_list=${listFilter}`,
-            { waitUntil: 'domcontentloaded', timeout: 60_000 },
-          );
+          await navigateBySysId(page, sysId);
         } else {
-          console.log(`  → Slow path: navigating to ServiceNow home (no sys_id for ${crNumber})`);
-          await page.goto(`${SN_BASE_URL}/`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-        }
-        await page.waitForLoadState('domcontentloaded');
-
-        // Session check — must happen before any waitForURL call.
-        const landingUrl = page.url();
-        if (/sso\.thomsonreuters\.com|pingone\.com|pingid\.com/i.test(landingUrl)) {
-          await handleSSOExpiry(page);
-          // Session recovered — proceed with list search from ServiceNow home
-          if (!sysId) await navigateByListSearch(page, crNumber);
-        }
-
-        if (!sysId) {
-          // No sys_id — use menu list search now that the session is confirmed valid
+          console.log(`  → Slow path: searching list (no sys_id in registry for ${crNumber})`);
           await navigateByListSearch(page, crNumber);
         }
-
-        await page.waitForURL(/change_request\.do(%3F|\?).*sys_id(%3D|=)/i, { timeout: T_NAV });
-        await page.waitForLoadState('domcontentloaded');
         console.log(`✓ Opened CR ${crNumber}`);
       });
 
-      // ── 2. Create all CTasks ───────────────────────────────────────────────
-      await test.step('2. Create Change Tasks for all departments', async () => {
+      // ── 3. Create all CTasks ───────────────────────────────────────────────
+      await test.step('3. Create Change Tasks for all departments', async () => {
         const ctaskSteps = getCtaskConfig(env, region);
 
         const approvalGroups: ApprovalGroup[] = [
@@ -424,7 +400,7 @@ test.describe('CRE — CTask Creation', () => {
  *   $env:CR_CONFIG="SAT,UAT_EMEA,UAT_AMER,UAT_MENA,PROD_EMEA,PROD_AMER,PROD_MENA"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_cre/ctasks.spec.ts --project=CRE --headed --workers=7
  *
  * ── By explicit CR number ────────────────────────────────────────────────────
- *   $env:CR_NUMBERS="CHG0283176"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_cre/ctasks.spec.ts --project=CRE --headed --workers=1
+ *   $env:CR_NUMBERS="CHG0269659"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_cre/ctasks.spec.ts --project=CRE --headed --workers=1
  *
  * ── Target a specific config with --grep ─────────────────────────────────────
  *   $env:CR_CONFIG="UAT_MENA,PROD_MENA"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_cre/ctasks.spec.ts --project=CRE --headed --workers=1 --grep "\[UAT_MENA\]"

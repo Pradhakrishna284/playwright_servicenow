@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .gitignore — CRE Playwright Automation
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Credentials & secrets ────────────────────────────────────────────────────
+.env                        # SSO credentials — NEVER commit
+auth_servicenow.json         # Saved browser session — contains live cookies
+
+# ── Playwright output ────────────────────────────────────────────────────────
+playwright-report/
+test-results/
+blob-report/
+test-results.json
+test-results.xml
+
+# ── Runtime data ─────────────────────────────────────────────────────────────
+change_request_registry.yaml   # CRE — auto-generated per run — local only
+change_request_registry.json   # TDR — auto-generated per run — local only
+
+# ── Node ─────────────────────────────────────────────────────────────────────
+node_modules/
+
+# ── OS / Editor ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+*.log

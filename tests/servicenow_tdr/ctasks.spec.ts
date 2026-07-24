@@ -66,8 +66,7 @@ import {
   submitForm,
   detectCtaskPrefix,
   fillCtaskAssignment,
-  handleSSOExpiry,
-} from '../helpers';
+} from './helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -183,20 +182,16 @@ test.beforeAll(() => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Fast path: navigate to the CR via nav_to.do (one page load).
- * nav_to.do loads the full ServiceNow portal shell, which places the form
- * inside #gsft_main — required for all subsequent iframe interactions.
- * Navigating directly to change_request.do?sys_id=... bypasses the portal
- * shell and renders the form at page level (no #gsft_main).
+ * Fast path: navigate directly to the CR by sys_id (one page load).
  */
 async function navigateBySysId(page: Page, sysId: string): Promise<void> {
   const listFilter = encodeURIComponent(
     'active=true^short_description>=Tax Data Repository^ORDERBYshort_description',
   );
-  const recordUri = encodeURIComponent(`change_request.do?sys_id=${sysId}&sysparm_record_list=${listFilter}`);
-  await page.goto(`https://trenterprise.service-now.com/nav_to.do?uri=${recordUri}`, { waitUntil: 'load', timeout: T_NAV });
-  await page.waitForURL(/change_request\.do/i, { timeout: T_NAV });
-  await page.waitForLoadState('load');
+  const directUrl = `${SERVICENOW_CR_URL}?sys_id=${sysId}&sysparm_record_list=${listFilter}`;
+  await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await page.waitForURL(/change_request\.do(%3F|\?).*sys_id(%3D|=)/i, { timeout: T_NAV });
+  await page.waitForLoadState('domcontentloaded');
 }
 
 /**
@@ -290,42 +285,29 @@ test.describe('TDR — CTask Creation', () => {
     test(`[${label}] Create CTasks for ${crNumber}`, async ({ page }) => {
       test.setTimeout(15 * 60 * 1000); // 15 min — TDR CTasks have longer descriptions
 
-      // ── 1. Open Change Request ─────────────────────────────────────────────
-      // Two-tier navigation: sys_id (fast) → list search (fallback).
-      // SSO check runs after the first goto — before any waitForURL call —
-      // to avoid PingID closing the page mid-navigation.
-      await test.step('1. Open Change Request', async () => {
-        const sysId = getSysIdForCr(crNumber);
+      // ── 1. Navigate to application ─────────────────────────────────────────
+      await test.step('1. Navigate to application', async () => {
+        await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 120_000 });
+        await page.waitForURL(/trenterprise\.service-now\.com/);
+        await page.waitForLoadState('domcontentloaded');
+        console.log(`✓ [${label}] Navigated to ServiceNow`);
+      });
 
+      // ── 2. Open Change Request ─────────────────────────────────────────────
+      await test.step('2. Open Change Request', async () => {
+        const sysId = getSysIdForCr(crNumber);
         if (sysId) {
           console.log(`  → Fast path: navigating by sys_id (${sysId})`);
           await navigateBySysId(page, sysId);
         } else {
-          console.log(`  → Slow path: navigating to ServiceNow home (no sys_id for ${crNumber})`);
-          await page.goto('https://trenterprise.service-now.com/', { waitUntil: 'domcontentloaded', timeout: 120_000 });
-        }
-        await page.waitForLoadState('domcontentloaded');
-
-        // Session check — must happen before any waitForURL call.
-        const finalUrl = page.url();
-        if (/sso\.thomsonreuters\.com|pingone\.com|pingid\.com/i.test(finalUrl)) {
-          await handleSSOExpiry(page);
-          // Session recovered — proceed with list search from ServiceNow home
-          if (!sysId) await navigateByListSearch(page, crNumber);
-        }
-
-        if (!sysId) {
-          // No sys_id — use menu list search now that session is confirmed valid
+          console.log(`  → Slow path: searching list (no sys_id in registry for ${crNumber})`);
           await navigateByListSearch(page, crNumber);
         }
-
-        await page.waitForURL(/change_request\.do/i, { timeout: T_NAV });
-        await page.waitForLoadState('load', { timeout: T_NAV });
         console.log(`✓ Opened CR ${crNumber}`);
       });
 
-      // ── 2. Create all CTasks ───────────────────────────────────────────────
-      await test.step('2. Create Change Tasks', async () => {
+      // ── 3. Create all CTasks ───────────────────────────────────────────────
+      await test.step('3. Create Change Tasks', async () => {
         const ctaskConfigs = testData.ctaskConfigs ?? [];
         if (ctaskConfigs.length === 0) {
           console.log('ℹ No CTasks configured for this environment — skipping');

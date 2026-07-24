@@ -72,7 +72,7 @@ releases:
   "2026.07.00":
     buildVersion:     "Build#0"
     generateDumpProd: "10-08-2026"
-    uatDataRefresh:   "12-08-2026"
+    uatDataRefresh:   "14-08-2026"
     qaDataRefresh:    "22-08-2026"
 
   "2026.08.00":

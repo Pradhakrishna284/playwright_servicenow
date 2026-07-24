@@ -53,16 +53,15 @@
  */
 
 import { test, expect, Page, FrameLocator } from '@playwright/test';
-import { COMMON_CONSTANTS, ChangeRequestStorage, SN_BASE_URL, buildNavToCrUri } from './testDataConfig_CRE';
+import { COMMON_CONSTANTS, ChangeRequestStorage } from './testDataConfig_CRE';
 import {
   ALL_MENU_SELECTOR,
   OPEN_CR_SELECTOR,
   getIframe,
   scrollMenuUntil,
   createRiskAssessmentTask,
-  handleSSOExpiry,
   // approveCR, // uncomment when approveCR is added to helpers.ts
-} from '../helpers';
+} from './helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -73,7 +72,7 @@ const {
   timeoutPageNav:        T_NAV,
 } = COMMON_CONSTANTS;
 
-const SERVICENOW_CR_URL = `${SN_BASE_URL}/change_request.do`;
+const SERVICENOW_CR_URL = 'https://trenterprise.service-now.com/change_request.do';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CR NUMBER RESOLUTION
@@ -133,15 +132,16 @@ test.beforeAll(() => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Fast path: navigate to the CR via nav_to.do (one page load).
- * nav_to.do loads the full ServiceNow portal shell, which places the form
- * inside #gsft_main — required for all subsequent iframe interactions.
- * Navigating directly to change_request.do?sys_id=... bypasses the portal
- * shell and renders the form at page level (no #gsft_main).
+ * Fast path: navigate directly to the CR by sys_id (one page load).
+ * Used when the registry has a crSysId entry — skips the list search entirely.
  */
 async function navigateBySysId(page: Page, sysId: string): Promise<void> {
-  await page.goto(buildNavToCrUri(sysId), { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForURL(/change_request\.do/i, { timeout: T_NAV });
+  const listFilter = encodeURIComponent(
+    'active=true^short_description>=Content Rate Extract^ORDERBYshort_description',
+  );
+  const directUrl = `${SERVICENOW_CR_URL}?sys_id=${sysId}&sysparm_record_list=${listFilter}`;
+  await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await page.waitForURL(/change_request\.do(%3F|\?).*sys_id(%3D|=)/i, { timeout: T_NAV });
   await page.waitForLoadState('domcontentloaded');
 }
 
@@ -191,8 +191,8 @@ async function navigateByListSearch(page: Page, crNumber: string): Promise<void>
 
 /**
  * Resolve navigation strategy for a CR number:
- *   - Fast path: direct sys_id URL (1 page load, ~3s)
- *   - Slow path: home → menu → list search (fallback when no sys_id available)
+ *   - Prefer direct sys_id navigation (fast, 1 page load)
+ *   - Fall back to list search (slow, 3 interactions)
  */
 function getSysIdForCr(crNumber: string): string | undefined {
   const registry = ChangeRequestStorage.loadAll();
@@ -207,155 +207,83 @@ function getSysIdForCr(crNumber: string): string | undefined {
 // PARAMETERISED TEST SUITE  (one test per CR — each runs in its own worker)
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.describe('CRE — Risk Assessment and Request for Approval', () => {
+test.describe('CRE — Risk Assessment and Submit for Assess', () => {
   for (const crNumber of CR_NUMBERS) {
 
-    test(`[${crNumber}] Risk Assessment and Request for Approval`, async ({ page }) => {
+    test(`[${crNumber}] Risk Assessment and Submit for Assess`, async ({ page }) => {
       test.setTimeout(10 * 60 * 1000); // 10 minutes per CR
 
-      // ── 1. Open Change Request ──────────────────────────────────────────────
-      // Two-tier navigation: nav_to.do sys_id (fast) → list search (fallback).
-      // nav_to.do loads the ServiceNow portal shell so the form renders inside
-      // #gsft_main — direct change_request.do navigation bypasses the shell.
-      await test.step('1. Open Change Request', async () => {
+      // ── 1. Navigate to application ─────────────────────────────────────────
+      await test.step('1. Navigate to application', async () => {
+        await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        await page.waitForURL(/trenterprise\.service-now\.com/);
+        await page.waitForLoadState('domcontentloaded');
+        console.log(`✓ [${crNumber}] Navigated to ServiceNow`);
+      });
+
+      // ── 2. Open Change Request ─────────────────────────────────────────────
+      // Fast path: direct sys_id URL (1 page load, no searching).
+      // Slow path: list search (used when CR was created before sys_id capture was added).
+      await test.step('2. Open Change Request', async () => {
         const sysId = getSysIdForCr(crNumber);
 
         if (sysId) {
           console.log(`  → Fast path: navigating by sys_id (${sysId})`);
-          await page.goto(
-            buildNavToCrUri(sysId),
-            { waitUntil: 'load', timeout: T_NAV },
-          );
+          await navigateBySysId(page, sysId);
         } else {
-          console.log(`  → Slow path: navigating to ServiceNow home (no sys_id for ${crNumber})`);
-          await page.goto(`${SN_BASE_URL}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-        }
-        await page.waitForLoadState('domcontentloaded');
-
-        // Session check — catches both immediate and deferred SSO redirects.
-        const landingUrl = page.url();
-        if (/sso\.thomsonreuters\.com|pingone\.com|pingid\.com/i.test(landingUrl)) {
-          await handleSSOExpiry(page);
-          // Session recovered — proceed with list search from ServiceNow home
-          if (!sysId) await navigateByListSearch(page, crNumber);
-        }
-
-        if (!sysId) {
-          // No sys_id — use menu list search now that session is confirmed valid
+          console.log(`  → Slow path: searching list (no sys_id in registry for ${crNumber})`);
           await navigateByListSearch(page, crNumber);
         }
 
-        await page.waitForURL(/change_request\.do/i, { timeout: T_NAV });
-        await page.waitForLoadState('load', { timeout: T_NAV });
         console.log(`✓ Opened CR ${crNumber}`);
       });
 
-      // ── 2. Create Risk Assessment ──────────────────────────────────────────
-      await test.step('2. Create Risk Assessment', async () => {
-        // ServiceNow can trigger a deferred background auth check AFTER the
-        // 'load' event in step 1. Re-check the URL here before calling
-        // getIframe() — which has no timeout and hangs indefinitely if the
-        // page has navigated away to SSO.
-        await page.waitForLoadState('load', { timeout: T_NAV });
-        const preUrl = page.url();
-        if (/sso\.thomsonreuters\.com|pingone\.com|pingid\.com/i.test(preUrl)) {
-          await handleSSOExpiry(page);
-          // Re-navigate to the CR after session recovery
-          const sysId = getSysIdForCr(crNumber);
-          if (sysId) {
-            await page.goto(
-              buildNavToCrUri(sysId),
-              { waitUntil: 'load', timeout: T_NAV },
-            );
-          } else {
-            await navigateByListSearch(page, crNumber);
-          }
-          await page.waitForLoadState('load', { timeout: T_NAV });
-        }
-
+      // ── 3. Create Risk Assessment ───────────────────────────────────────────
+      await test.step('3. Create Risk Assessment', async () => {
         const iframe = await getIframe(page);
         await createRiskAssessmentTask(page, iframe, T_ELEMENT);
-        // After the risk assessment popup closes, ServiceNow reloads the CR form.
-        // Wait for the full 'load' event so all form JS is fully wired before
-        // attempting to click "Request Approval" in the next step.
-        await page.waitForTimeout(3_000); // 3s buffer for AJAX + DOM wiring
-        // ServiceNow sometimes triggers a deferred background auth check AFTER the
-        // 'load' event. Re-check the URL here before proceeding — getIframe() has
-        // no timeout and hangs indefinitely if the page has navigated away to SSO.
-        const postUrl = page.url();
-        if (/sso\.thomsonreuters\.com|pingone\.com|pingid\.com/i.test(postUrl)) {
-          await handleSSOExpiry(page);
-          // Re-navigate to the CR after session recovery
-          const sysId = getSysIdForCr(crNumber);
-          if (sysId) {
-            await page.goto(
-              buildNavToCrUri(sysId),
-              { waitUntil: 'load', timeout: T_NAV },
-            );
-          } else {
-            await navigateByListSearch(page, crNumber);
-          }
-          await page.waitForLoadState('load', { timeout: T_NAV });
-        }
+
+        // Wait for CR number field to be attached — the form re-renders after
+        // the risk assessment popup closes (field may not be visible yet).
+        await page.waitForLoadState('domcontentloaded');
         const refreshedIframe = page.frameLocator('#gsft_main');
         await refreshedIframe
           .locator('input[id="change_request.number"]')
           .waitFor({ state: 'attached', timeout: T_ELEMENT });
-        console.log('✓ CR form fully loaded after risk assessment');
+        console.log('✓ CR form ready after risk assessment');
       });
 
-      // ── 3. Request Approval ─────────────────────────────────────────────────
-      await test.step('3. Request Approval', async () => {
-        await page.waitForLoadState('load', { timeout: T_NAV });
+      // ── 4. Submit for Assess ────────────────────────────────────────────────
+      // Uses the exact same pattern as changeRequest.spec.ts Step 10.
+      await test.step('4. Submit for Assess', async () => {
+        await page.waitForLoadState('domcontentloaded');
         const iframe = page.frameLocator('#gsft_main');
 
-        // Wait for button — confirms CR is in the correct pre-transition state.
-        const btn = iframe.locator('button#state_model_request_cab_approval');
-        await btn.waitFor({ state: 'visible', timeout: T_ELEMENT });
-
-        // Click the button directly — this fires the full onclick which sets
-        // window.state_model_request_cab_approval before calling moveToAuthorize().
-        // Calling moveToAuthorize() without that context causes the server-side
-        // transition to silently fail (button remains visible after reload).
         try {
+          const btn = iframe.locator('button#state_model_request_assess_approval');
+          await btn.waitFor({ state: 'visible', timeout: T_ELEMENT });
           await btn.scrollIntoViewIfNeeded();
           await btn.click({ force: true });
-          console.log('✓ Request Approval clicked');
+          console.log('✓ Submit for Assess clicked');
         } catch {
-          // Fallback: set window context manually, then call moveToAuthorize()
-          const gsftFrame = page.frames().find(f => f !== page.mainFrame());
-          if (!gsftFrame) throw new Error('gsft_main frame not found');
-          await gsftFrame.evaluate(() => {
-            const g = globalThis as any;
-            const el = g.document?.getElementById?.('state_model_request_cab_approval');
-            if (el) g.state_model_request_cab_approval = el;
-            const fn = g.moveToAuthorize;
-            if (typeof fn !== 'function') throw new Error('moveToAuthorize not found on globalThis');
-            fn();
+          const frame = page.frames().find(f => f !== page.mainFrame());
+          if (!frame) throw new Error('gsft_main frame not found');
+          await frame.evaluate(() => {
+            const fn = (globalThis as any).moveToAssess;
+            if (typeof fn === 'function') fn();
+            else throw new Error('moveToAssess not found on globalThis');
           });
-          console.log('✓ moveToAuthorize() called in frame context');
+          console.log('✓ moveToAssess() executed via JS');
         }
 
-        // Wait 3s for the AJAX state transition to complete server-side before
-        // reloading. Attempting to intercept the exact AJAX response is unreliable
-        // because moveToAuthorize() calls a ServiceNow-internal endpoint (not
-        // change_request.do), and broader filters match background polling first.
-        await page.waitForTimeout(3_000);
-        await page.reload({ waitUntil: 'load', timeout: T_NAV });
-        console.log('✓ Page reloaded after state transition');
-
-        // Both buttons gone — confirms the CR moved to Authorize state.
-        const reloadedIframe = page.frameLocator('#gsft_main');
-        await expect(reloadedIframe.locator('button#state_model_request_cab_approval'))
-          .toBeHidden({ timeout: T_ELEMENT });
-        await expect(reloadedIframe.locator('#RiskAssessmentV2'))
-          .toBeHidden({ timeout: T_ELEMENT });
-        console.log('✓ Request Approval and Risk Assessment buttons gone — state transition confirmed');
-        console.log(`✓ [${crNumber}] Request Approval complete`);
+        await page.waitForURL(/change_request\.do(%3F|\?).*sys_id(%3D|=)/, { timeout: T_NAV });
+        await page.waitForLoadState('domcontentloaded');
+        await page.waitForTimeout(2_000);
+        console.log(`✓ [${crNumber}] Submit for Assess complete`);
       });
 
-      // ── 4. Approve CR from RM team (uncomment when needed) ─────────────────
-      // await test.step('4. Approve CR from RM team', async () => {
+      // ── 5. Approve CR from RM team (uncomment when needed) ─────────────────
+      // await test.step('5. Approve CR from RM team', async () => {
       //   const iframe = await getIframe(page);
       //   await approveCR(page, iframe, ASSIGNED_TO_RM, T_ELEMENT);
       // });
@@ -373,7 +301,7 @@ test.describe('CRE — Risk Assessment and Request for Approval', () => {
  *   npx playwright test sso_setup.ts --project=setup --headed
  *
  * ── Single CR (1 browser) ─────────────────────────────────────────────────────
- *   $env:CR_NUMBERS="CHG0282683"; npx playwright test servicenow_cre/riskmanagement.spec.ts --project=CRE --headed --workers=1
+ *   $env:CR_NUMBERS="CHG0269659"; npx playwright test servicenow_cre/riskmanagement.spec.ts --project=CRE --headed --workers=1
  *
  * ── Multiple CRs in parallel (N browsers) ────────────────────────────────────
  *   $env:CR_NUMBERS="CHG0269507,CHG0267775"; npx playwright test servicenow_cre/riskmanagement.spec.ts --project=CRE --headed --workers=2

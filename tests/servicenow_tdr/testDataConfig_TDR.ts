@@ -371,7 +371,7 @@ export const ChangeRequestStorage = {
   getStoragePath: () => path.join(__dirname, 'change_request_registry.yaml'),
 
   generateCrUrl(crNumber: string, releaseVersion: string, sysId?: string): string {
-    const base       = 'https://trenterprisedev.service-now.com/change_request.do';
+    const base       = 'https://trenterprise.service-now.com/change_request.do';
     const listFilter = encodeURIComponent(
       `active=true^short_description>=Tax Data Repository | ${releaseVersion}^ORDERBYshort_description`,
     );

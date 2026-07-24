@@ -16,6 +16,8 @@
  */
 
 import { test, expect, Page, FrameLocator } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 import {
   TEST_CONFIGURATIONS_ORDERED,
   COMMON_CONSTANTS,
@@ -38,10 +40,54 @@ import {
   detectCtaskPrefix,
   fillCtaskAssignment,
   handleSSOExpiry,
-} from '../helpers';
+} from './helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GLOBAL SETUP
+// NOTIFICATION HELPER
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Dismisses any visible ServiceNow notification toasts or inline banners.
+ * Non-fatal — silently skips if none are present.
+ */
+async function dismissPageNotifications(page: Page): Promise<void> {
+  try {
+    const allSelectors = [
+      '.notification-ui span.close[role="button"]',
+      'span[aria-label="Dismiss Notification"]',
+      '.notification-ui .close-notification .close',
+      '.notification-ui button.close',
+      '.alert-dismissible button.close',
+      '.alert-dismissible .close',
+      'button[data-dismiss="alert"]',
+      '[class*="snf-notification"] button.close',
+      '[class*="snf-notification"] .close',
+      '[class*="snf-banner"] .close',
+      '.page-message .close',
+      '.snf-alert .close',
+    ].join(', ');
+
+    const allButtons = page.locator(allSelectors);
+    const totalFound = await allButtons.count();
+    if (totalFound === 0) return;
+
+    const screenshotsDir = path.join(__dirname, 'screenshots');
+    fs.mkdirSync(screenshotsDir, { recursive: true });
+    const ts = Date.now();
+    await page.screenshot({ path: path.join(screenshotsDir, `notification-before-${ts}.png`), fullPage: false }).catch(() => {});
+    console.log(`Screenshot: notification-before-${ts}.png`);
+
+    let dismissed = 0;
+    for (let i = 0; i < totalFound; i++) {
+      await allButtons.nth(i).click({ timeout: 3_000 }).catch(() => {});
+      dismissed++;
+    }
+    await page.waitForTimeout(500);
+
+    await page.screenshot({ path: path.join(screenshotsDir, `notification-after-${ts}.png`), fullPage: false }).catch(() => {});
+    console.log(`Dismissed ${dismissed} notification(s) - after: notification-after-${ts}.png`);
+  } catch { /* notifications are transient - ignore any errors */ }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.beforeAll(async () => {
@@ -69,8 +115,12 @@ const {
   timeoutAutosuggest:    T_SUGGEST,
 } = COMMON_CONSTANTS;
 
-//const SERVICENOW_CR_URL = 'https://trenterprise.service-now.com/change_request.do';
-const SERVICENOW_CR_URL = 'https://trenterprisedev.service-now.com/change_request.do';
+/** Production ServiceNow host — change this one constant to switch environments. */
+const SERVICENOW_HOST    = 'trenterprise.service-now.com';
+const SERVICENOW_BASE    = `https://${SERVICENOW_HOST}`;
+const SERVICENOW_CR_URL  = `${SERVICENOW_BASE}/change_request.do`;
+/** Regex built from the host constant — used in waitForURL / toHaveURL checks. */
+const SERVICENOW_HOST_RE = new RegExp(SERVICENOW_HOST.replace(/\./g, '\\.'));
 
 /** Race window for capturing sys_id from the brief post-submit URL. */
 const T_SYS_ID_RACE = 10_000;
@@ -95,12 +145,8 @@ async function navigateBySysId(page: Page, sysId: string): Promise<void> {
     'active=true^short_description>=Tax Data Repository^ORDERBYshort_description',
   );
   const recordUri = encodeURIComponent(`change_request.do?sys_id=${sysId}&sysparm_record_list=${listFilter}`);
-  // await page.goto(
-  //   `https://trenterprise.service-now.com/nav_to.do?uri=${recordUri}`,
-  //   { waitUntil: 'domcontentloaded', timeout: T_NAV },
-  // );
   await page.goto(
-    `https://trenterprisedev.service-now.com/nav_to.do?uri=${recordUri}`,
+    `${SERVICENOW_BASE}/nav_to.do?uri=${recordUri}`,
     { waitUntil: 'domcontentloaded', timeout: T_NAV },
   );
   await page.waitForURL(/change_request\.do/i, { timeout: T_NAV });
@@ -115,7 +161,7 @@ async function navigateByListSearch(page: Page, crNumber: string): Promise<void>
 
   const openItem = await scrollMenuUntil(page, OPEN_CR_SELECTOR, 'Open (under Change)');
   await openItem.scrollIntoViewIfNeeded();
-  await expect(openItem).toBeVisible({ timeout: 5_000 });
+  await expect(openItem).toBeVisible({ timeout: 40 * 1000 });
   await openItem.click();
   await page.waitForURL(/change_request_list\.do/, { timeout: T_NAV });
   await page.waitForLoadState('domcontentloaded');
@@ -221,7 +267,7 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
   for (const [configKey, testData] of TEST_CONFIGURATIONS_ORDERED) {
 
     test(`[${configKey}] CR Creation and CTask Management`, async ({ page }) => {
-      test.setTimeout(15 * 60 * 1000); // 15 min — TDR CTasks have longer descriptions
+      // Timeout is set globally in playwright.config.ts (15 min).
       const testStart = Date.now();
 
       // ── 1. Navigate to app ──
@@ -234,12 +280,9 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
         const finalUrl = page.url();
         if (/sso\.thomsonreuters\.com|pingone\.com|pingid\.com/i.test(finalUrl)) {
           await handleSSOExpiry(page);
-          // Re-navigate to home so the ServiceNow SPA fully initialises
-          // (SSO redirect lands on an arbitrary page; a fresh goto guarantees
-          // the Polaris navigation and All-menu are wired before step 2 runs).
-          await page.goto('/', { waitUntil: 'domcontentloaded', timeout: T_NAV });
+          // Session recovered — proceed from ServiceNow home
         }
-        await expect(page).toHaveURL(/trenterprisedev\.service-now\.com/, { timeout: T_ELEMENT });
+        await expect(page).toHaveURL(SERVICENOW_HOST_RE, { timeout: T_ELEMENT });
         await page.waitForLoadState('domcontentloaded');
         console.log(`✓ [${configKey}] Navigated to ServiceNow`);
       });
@@ -314,6 +357,7 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
         }
 
         await waitForCRDetail(page);
+        await dismissPageNotifications(page);
 
         // If sys_id was not captured at submit time, extract it from the URL now
         // so subsequent CTask redirects can use the fast path.
@@ -375,6 +419,7 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
             }
           }
           await waitForCRDetail(page);
+          await dismissPageNotifications(page);
           await page.waitForTimeout(T_CR_SETTLE);
           console.log(`✓ CTask ${i + 1} (${ctask.assignmentGroup}) created`);
         }
@@ -388,11 +433,11 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
         await page.waitForLoadState('load', { timeout: T_NAV });
         const iframe = page.frameLocator('#gsft_main');
 
-        const submitBtn = iframe.locator('button#state_model_request_assess_approval');
         try {
-          await submitBtn.waitFor({ state: 'visible', timeout: T_ELEMENT });
-          await submitBtn.scrollIntoViewIfNeeded();
-          await submitBtn.click({ force: true });
+          const btn = iframe.locator('button#state_model_request_assess_approval');
+          await btn.waitFor({ state: 'visible', timeout: T_ELEMENT });
+          await btn.scrollIntoViewIfNeeded();
+          await btn.click({ force: true });
           console.log('✓ Submit for Assess clicked');
         } catch {
           const frame = page.frames().find(f => f !== page.mainFrame());
@@ -405,13 +450,9 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
           console.log('✓ moveToAssess() executed via JS');
         }
 
-        // Wait for the Submit for Assess button to disappear — this is the reliable
-        // signal that moveToAssess() AJAX completed and the CR transitioned to Assess.
-        // waitForURL fires immediately (nav_to.do URL already matches), so we can't
-        // rely on it as a completion signal here.
-        await submitBtn.waitFor({ state: 'hidden', timeout: 8_000 }).catch(() => null);
+        await page.waitForURL(/change_request\.do(%3F|\?).*sys_id(%3D|=)/, { timeout: T_NAV });
         await page.waitForLoadState('load', { timeout: T_NAV });
-        console.log('✓ Submit for Assess complete — CR in Assess state');
+        console.log('✓ Submit for Assess complete — page fully loaded');
       });
 
       // ── 10. Risk Assessment ───────────────────────────────────────────────
@@ -420,6 +461,9 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
       await test.step('10. Create Risk Assessment', async () => {
         await page.waitForLoadState('load', { timeout: T_NAV });
         await waitForCRDetail(page);
+
+        // Dismiss any notifications that may overlay the Risk Assessment button.
+        await dismissPageNotifications(page);
 
         const iframe = await getIframe(page);
         await createRiskAssessmentTask(page, iframe, T_ELEMENT);
@@ -435,24 +479,13 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
       
       // ── 11. Request Approval ─────────────────────────────────────────────────
         await test.step('11. Request Approval', async () => {
-        // Navigate to the CR fresh before attempting the state transition.
-        // After the risk assessment popup closes, ServiceNow updates the CR
-        // form via AJAX (e.g. writing the risk score), leaving g_form.isChanged()
-        // = true.  moveToAuthorize() detects unsaved changes and silently aborts
-        // even though no dialog is shown — the button stays visible after reload.
-        // A fresh navigation resets the form to its persisted server state so
-        // g_form.isChanged() = false and the transition can proceed cleanly.
-        const crNum = testData.changeRequestNumber!;
-        const sysId = getSysIdForCr(crNum);
-        if (sysId) {
-          console.log(`  → Re-navigating to CR before Request Approval (sys_id: ${sysId})`);
-          await navigateBySysId(page, sysId);
-        } else {
-          console.log(`  → Re-navigating to CR before Request Approval (list search)`);
-          await navigateByListSearch(page, crNum);
-        }
-        await waitForCRDetail(page);
         await page.waitForLoadState('load', { timeout: T_NAV });
+
+        // Dismiss notifications before interacting; wait 1 s then dismiss again
+        // to catch any that arrive slightly after the first sweep.
+        await dismissPageNotifications(page);
+        await page.waitForTimeout(1_000);
+        await dismissPageNotifications(page);
 
         // Use getIframe() to ensure the iframe body is attached and its JS
         // (including onclick handlers) is fully wired before interacting.
@@ -462,15 +495,18 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
         const btn = iframe.locator('button#state_model_request_cab_approval');
         await btn.waitFor({ state: 'visible', timeout: T_ELEMENT });
 
-        // Primary: call moveToAuthorize() directly in the frame context after
-        // explicitly setting window.state_model_request_cab_approval. This is
-        // what the button's onclick does, but a synthetic Playwright click may
-        // not bind `this` correctly after an iframe reload (risk assessment popup
-        // closes and re-renders the CR form), causing the transition to silently fail.
-        await btn.scrollIntoViewIfNeeded();
-        const gsftFrame = page.frames().find(f => f !== page.mainFrame());
-        if (!gsftFrame) throw new Error('gsft_main frame not found');
+        // Click the button directly — this fires the full onclick which sets
+        // window.state_model_request_cab_approval before calling moveToAuthorize().
+        // Calling moveToAuthorize() without that context causes the server-side
+        // transition to silently fail (button remains visible after reload).
         try {
+          await btn.scrollIntoViewIfNeeded();
+          await btn.click({ force: true });
+          console.log('✓ Request Approval clicked');
+        } catch {
+          // Fallback: set window context manually, then call moveToAuthorize()
+          const gsftFrame = page.frames().find(f => f !== page.mainFrame());
+          if (!gsftFrame) throw new Error('gsft_main frame not found');
           await gsftFrame.evaluate(() => {
             const g = globalThis as any;
             const el = g.document?.getElementById?.('state_model_request_cab_approval');
@@ -479,32 +515,21 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
             if (typeof fn !== 'function') throw new Error('moveToAuthorize not found on globalThis');
             fn();
           });
-          console.log('✓ moveToAuthorize() called — Request Approval initiated');
-        } catch {
-          // Fallback: DOM click if JS approach fails (e.g. moveToAuthorize not on globalThis)
-          await btn.click({ force: true });
-          console.log('✓ Request Approval clicked (fallback DOM click)');
+          console.log('✓ moveToAuthorize() called in frame context');
         }
 
-        // moveToAuthorize() uses AJAX. After a successful call ServiceNow
-        // re-renders the form and the button disappears — use that as the
-        // completion signal rather than a blind fixed timeout that may reload
-        // while the AJAX is still in-flight.
-        const transitioned = await btn.waitFor({ state: 'hidden', timeout: 8_000 })
-          .then(() => true)
-          .catch(() => false);
+        // moveToAuthorize() uses AJAX — unlike "Submit for Assess" it does NOT
+        // always trigger a page navigation. waitForURL returns immediately because
+        // the current nav_to.do URL already matches the pattern, giving a false
+        // "complete" signal before the AJAX has had time to process.
+        // Give the AJAX more time to process (5 s matches CRE proven timing).
+        await page.waitForTimeout(5_000);
+        await page.reload({ waitUntil: 'load', timeout: T_NAV });
+        console.log('✓ Page reloaded after state transition');
 
-        if (transitioned) {
-          // Button already gone — AJAX completed and form re-rendered.
-          // Small settle before checking the final result.
-          await page.waitForTimeout(500);
-          console.log('✓ State transition confirmed (button hidden naturally)');
-        } else {
-          // No re-render in 8s — reload to get the definitive server state.
-          await page.waitForTimeout(2_000);
-          await page.reload({ waitUntil: 'load', timeout: T_NAV });
-          console.log('✓ Page reloaded after state transition');
-        }
+        // Dismiss notifications that reappear after reload before button check.
+        await dismissPageNotifications(page);
+        await page.waitForTimeout(1_000);
 
         // Soft check — wait up to T_ELEMENT for button to disappear.
         // The iframe may take several seconds to fully re-render the Authorize
@@ -533,24 +558,27 @@ test.describe('TDR Change Request Creation — All Configs (Parallel)', () => {
  * HOW TO RUN
  * ─────────────────────────────────────────────────────────────────────────────
  *
+ * ⚠ IMPORTANT: All commands must be run from the servicenow_tdr folder:
+ *   cd playwright_scripts/servicenow_tdr
+ *
  * STEP 1 — SSO setup (run once; re-run when session expires)
  *   Option A: click "Run SSO Setup" in the launcher (http://localhost:3131/tdr)
- *   Option B: npx playwright test tests/sso_setup.ts --project=setup --headed
+ *   Option B: npx playwright test sso_setup.ts --project=setup --headed
  *
  * ── Run all 3 configs in parallel (3 browsers open simultaneously) ────────────
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=3
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=3
  *
  * ── Run a single config (1 browser) ──────────────────────────────────────────
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[GENERATE_DUMP_PROD\]"
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[UAT\]"
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[QA\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[GENERATE_DUMP_PROD\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[UAT\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[QA\]"
  *
  * ── Run any two configs in parallel (2 browsers) ─────────────────────────────
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=2 --grep "\[UAT\]|\[QA\]"
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=2 --grep "\[GENERATE_DUMP_PROD\]|\[UAT\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=2 --grep "\[UAT\]|\[QA\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=2 --grep "\[GENERATE_DUMP_PROD\]|\[UAT\]"
  *
  * ── Dry run (verify config, list tests — no browser opened) ──────────────────
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --list
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=TDR --list
  *
  * ── View HTML report after a run ─────────────────────────────────────────────
  *   npx playwright show-report

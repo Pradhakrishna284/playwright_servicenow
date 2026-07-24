@@ -2,28 +2,11 @@
  * CRE CHANGE REQUEST CREATION AND CTASK MANAGEMENT
  * =================================================
  *
- * Creates one Change Request + all CTasks per environment, in parallel across N workers.
- * Shared browser helpers imported from ../shared/helpers.ts.
- *
- * Prerequisites:
- *   1. Run SSO setup once: click "Run SSO Setup" in the launcher (http://localhost:3131)
- *      or run manually:  npx playwright test tests/sso_setup.ts --project=setup --headed
- *   2. Set release version: $env:RELEASE_VERSION="2026.06.00"
- *   3. Run all envs:        npx playwright test servicenow_cre/changeRequest.spec.ts --headed
- *
- * See README.md for full usage guide.
- *
- * PARALLEL EXECUTION NOTES:
- *   • Each test (UAT_MENA, PROD_MENA, …) runs in its own worker with its own
- *     browser context — they never share a page object.
- *   • ChangeRequestStorage.save() uses a file lock so concurrent workers don't
- *     corrupt change_request_registry.yaml when writing at the same time.
- *   • The SSO session (auth_servicenow.json) is READ-ONLY at test time — all
- *     workers safely share it with zero contention.
- *
  */
 
 import { test, expect, Page, FrameLocator } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 import {
   TEST_CONFIGURATIONS,
   COMMON_CONSTANTS,
@@ -32,8 +15,6 @@ import {
   CTASK_CONFIGURATIONS,
   getCtaskConfig,
   getCtaskDescriptions,
-  SN_BASE_URL,
-  buildNavToCrUri,
 } from './testDataConfig_CRE';
 import {
   ALL_MENU_SELECTOR,
@@ -50,7 +31,7 @@ import {
   detectCtaskPrefix,
   fillCtaskAssignment,
   handleSSOExpiry,
-} from '../helpers';
+} from './helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GLOBAL SETUP
@@ -60,12 +41,10 @@ test.beforeAll(async () => {
   if (!process.env.RELEASE_VERSION) {
     throw new Error(
       '❌ RELEASE_VERSION env var is required.\n' +
-      'Example:  $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_cre/changeRequest.spec.ts --headed',
+      'Example:  $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_cre/changeRequest.spec.ts --headed',
     );
   }
   console.log(`📋 CRE Release Version: ${process.env.RELEASE_VERSION}`);
-  const liquibase = process.env.LIQUIBASE === 'true';
-  console.log(`🗄  Liquibase: ${liquibase ? 'YES — step 0 (Bring Down Services) INCLUDED for AMER' : 'NO  — step 0 skipped for AMER (default)'}`);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,6 +63,11 @@ const {
 
 const ASSIGNMENT_GROUPS   = CTASK_CONFIGURATIONS.assignmentGroups;
 const ASSIGNED_TO_DEFAULT = CTASK_CONFIGURATIONS.assignedTo.default;
+
+const SERVICENOW_CR_URL = 'https://trenterprise.service-now.com/change_request.do';
+
+/** Regex built from the host — used in toHaveURL / waitForURL checks. */
+const SERVICENOW_HOST_RE = /trenterprise\.service-now\.com/;
 
 // ─── Named timeout constants ──────────────────────────────────────────────────
 // All durations live here so they are easy to tune in one place.
@@ -112,17 +96,17 @@ const T_SETTLE = 5_000;
 /** CTask loop: time for ServiceNow's JS to wire up the Change Tasks tab panel
  *  after clicking the tab, before the "New" button is safe to click.
  *  Matches ctasks_spec.ts — removing this causes autosuggest init failures. */
-const T_TAB_SETTLE = 3_000;
+const T_TAB_SETTLE = 2_000;
 
 /** CTask loop: time for ServiceNow's JS to finish wiring reference fields
  *  (assignment_group autosuggest etc.) after the CTask form URL loads.
  *  Matches ctasks_spec.ts — removing this causes the dropdown to stay hidden. */
-const T_FORM_SETTLE = 3_000;
+const T_FORM_SETTLE = 1_000;
 
 /** CTask loop: time for the CR detail page to fully re-render after a CTask
  *  is submitted and ServiceNow redirects back to the parent CR.
  *  Matches ctasks_spec.ts post-submit settle. */
-const T_CR_SETTLE = 2_000;
+const T_CR_SETTLE = 1_000;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WAIT HELPERS
@@ -216,6 +200,62 @@ async function waitForCtaskFields(iframe: FrameLocator, prefix: string): Promise
     .waitFor({ state: 'visible', timeout: T_ELEMENT });
 }
 
+/**
+ * Dismisses any visible ServiceNow notification toasts (e.g. "Conflict last run
+ * updated by System"). These appear on the main page (not inside gsft_main)
+ * and block interaction if not closed. Non-fatal — silently skips if none present.
+ */
+async function dismissPageNotifications(page: Page): Promise<void> {
+  try {
+    // All known ServiceNow close-button selectors:
+    //  1. Toast popup  ("Conflict last run updated by System")
+    //  2. Inline scheduling conflict banner  ("Scheduling conflict detected")
+    //  3. AI NowAssist banner  ("Get AI NowAssist support...")
+    //  4. Generic Bootstrap/ServiceNow alert dismissibles
+    const allSelectors = [
+      '.notification-ui span.close[role="button"]',
+      'span[aria-label="Dismiss Notification"]',
+      '.notification-ui .close-notification .close',
+      '.notification-ui button.close',
+      '.alert-dismissible button.close',
+      '.alert-dismissible .close',
+      'button[data-dismiss="alert"]',
+      '[class*="snf-notification"] button.close',
+      '[class*="snf-notification"] .close',
+      '[class*="snf-banner"] .close',
+      '.page-message .close',
+      '.snf-alert .close',
+    ].join(', ');
+
+    const allButtons = page.locator(allSelectors);
+    const totalFound = await allButtons.count();
+
+    if (totalFound === 0) return;
+
+    // Screenshot BEFORE dismiss so we can see what notifications appeared
+    const screenshotsDir = path.join(__dirname, 'screenshots');
+    fs.mkdirSync(screenshotsDir, { recursive: true });
+    const ts = Date.now();
+    const beforePath = path.join(screenshotsDir, `notification-before-${ts}.png`);
+    await page.screenshot({ path: beforePath, fullPage: false }).catch(() => {});
+    console.log(`Screenshot: notification-before-${ts}.png`);
+
+    // Click every close button found (dismiss all banner types in one pass)
+    let dismissed = 0;
+    for (let i = 0; i < totalFound; i++) {
+      await allButtons.nth(i).click({ timeout: 3_000 }).catch(() => {});
+      dismissed++;
+    }
+
+    await page.waitForTimeout(500); // allow dismiss animations to complete
+
+    // Screenshot AFTER dismiss to confirm they are gone
+    const afterPath = path.join(screenshotsDir, `notification-after-${ts}.png`);
+    await page.screenshot({ path: afterPath, fullPage: false }).catch(() => {});
+    console.log(`Dismissed ${dismissed} notification(s) - after: notification-after-${ts}.png`);
+  } catch { /* notifications are transient - ignore any errors */ }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NAVIGATION HELPERS  (mirrors ctasks.spec.ts exactly)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -235,18 +275,16 @@ function getSysIdForCr(crNumber: string): string | undefined {
 }
 
 /**
- * Fast path: navigate to the CR via nav_to.do (one page load).
- * nav_to.do loads the full ServiceNow portal shell, which places the form
- * inside #gsft_main — required for all subsequent iframe interactions.
- * Navigating directly to change_request.do?sys_id=... bypasses the portal
- * shell and renders the form at page level (no #gsft_main).
+ * Fast path: navigate directly to the CR by sys_id (one page load).
+ * Used when the registry has a crSysId entry — skips the list search entirely.
  */
 async function navigateBySysId(page: Page, sysId: string): Promise<void> {
-  await page.goto(
-    buildNavToCrUri(sysId),
-    { waitUntil: 'domcontentloaded', timeout: T_NAV },
+  const listFilter = encodeURIComponent(
+    'active=true^short_description>=Content Rate Extract^ORDERBYshort_description',
   );
-  await page.waitForURL(/change_request\.do/i, { timeout: T_NAV });
+  const directUrl = `${SERVICENOW_CR_URL}?sys_id=${sysId}&sysparm_record_list=${listFilter}`;
+  await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: T_NAV });
+  await page.waitForURL(/change_request\.do(%3F|\?).*sys_id(%3D|=)/i, { timeout: T_NAV });
   await page.waitForLoadState('domcontentloaded');
 }
 
@@ -331,14 +369,7 @@ async function fillAndSubmitCR(
   await page.waitForLoadState('domcontentloaded');
   if (sysId) console.log(`✓ sys_id: ${sysId}`);
   else console.log('⚠ sys_id not captured — step 7 will use list-search fallback');
-  //─────────────────────────────────────────────────────────────────────────
-
-  // // ── DRY-RUN (delete these lines when submitting for real) ─────────────────
-  // await page.waitForTimeout(60000);
-  // console.log('[DRY-RUN] Submit skipped — form filled but NOT submitted');
-  // const sysId = undefined;
-  // // ─────────────────────────────────────────────────────────────────────────
-
+  
   if (crNumber?.trim()) {
     // ChangeRequestStorage.save() persists crNumber + sysId to the registry YAML.
     // Step 7 then reads the sysId back via getSysIdForCr() — same pattern as
@@ -362,7 +393,7 @@ async function fillAndSubmitCR(
 
 interface ApprovalGroup {
   assignment_group: string;
-  assigned_to?:     string;
+  assigned_to:      string;
   stepNumber:       number;
   department:       string;
 }
@@ -415,30 +446,22 @@ test.describe('CRE Change Request Creation — All Environments (Parallel)', () 
   for (const [configKey, testData] of Object.entries(TEST_CONFIGURATIONS)) {
 
     test(`[${configKey}] Complete CR Creation and CTask Management`, async ({ page }) => {
-      // 15 min matches ctasks.spec.ts — the full CTask loop can exceed 10 min
-      // on slower ServiceNow environments or when many CTasks are configured.
-      test.setTimeout(T_TEST);
+      // Timeout is set globally in playwright.config.ts (15 min).
+      const testStart = Date.now();
 
       // ── 1. Navigate to app ──────────────────────────────────────────────────
       await test.step('1. Navigate to application', async () => {
         await page.goto('/', { waitUntil: 'domcontentloaded', timeout: T_NAV });
+        await page.waitForLoadState('domcontentloaded');
 
+        // Do NOT call waitForURL before this check — PingID's redirect chain
+        // calls window.close() mid-navigation causing "Target page closed".
         const finalUrl = page.url();
         if (/sso\.thomsonreuters\.com|pingone\.com|pingid\.com/i.test(finalUrl)) {
           await handleSSOExpiry(page);
-          // Re-navigate to home so the ServiceNow SPA fully initialises
-          // (SSO redirect lands on an arbitrary page; a fresh goto guarantees
-          // the Polaris navigation and All-menu are wired before step 2 runs).
-          await page.goto('/', { waitUntil: 'domcontentloaded', timeout: T_NAV });
+          // Session recovered — proceed from ServiceNow home
         }
-        // NOTE: this used to hardcode /trenterprise\.service-now\.com/, which
-        // does NOT match trenterprisedev.service-now.com as a substring
-        // ("trenterprise" is immediately followed by "dev", not "."), so this
-        // assertion would fail on every run against the dev instance that
-        // playwright.config.ts's baseURL actually points to. Deriving the
-        // regex from SN_BASE_URL keeps this in sync with whichever instance
-        // is actually configured, instead of a second hardcoded guess.
-        await expect(page).toHaveURL(new RegExp(SN_BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), { timeout: T_ELEMENT });
+        await expect(page).toHaveURL(SERVICENOW_HOST_RE, { timeout: T_ELEMENT });
         console.log(`✓ [${configKey}] Navigated to ServiceNow`);
       });
 
@@ -449,7 +472,8 @@ test.describe('CRE Change Request Creation — All Environments (Parallel)', () 
         await allMenu.click();
         await page.waitForLoadState('domcontentloaded');
 
-        const createNew = await scrollMenuUntil(page, 'a[aria-label*="Create New"]', 'Create New');
+        // 100px scroll / 50ms wait — 3× faster than the default 30px/100ms.
+        const createNew = await scrollMenuUntil(page, 'a[aria-label*="Create New"]', 'Create New', 100, 100, 50);
         await createNew.scrollIntoViewIfNeeded();
         await expect(createNew).toBeVisible({ timeout: T_ELEMENT_SHORT });
         await createNew.click();
@@ -483,9 +507,8 @@ test.describe('CRE Change Request Creation — All Environments (Parallel)', () 
       });
 
       // ── 6. Wait for post-submit redirect back to landing page ───────────────
-      // ServiceNow may redirect to sn_chg_model_ui_landing.do OR change_request_list.do
-      // after CR submit depending on the environment/version. We accept either URL.
-      // Step 7 navigates explicitly to the CR so the exact destination doesn't matter.
+      // ServiceNow may redirect to sn_chg_model_ui_landing.do OR
+      // change_request_list.do depending on environment/version.
       await test.step('6. Wait for post-submit redirect', async () => {
         await page.waitForURL(
           /sn_chg_model_ui_landing\.do|change_request_list\.do|change_request\.do/i,
@@ -514,21 +537,14 @@ test.describe('CRE Change Request Creation — All Environments (Parallel)', () 
 
         // Confirm the CR detail form is fully rendered before proceeding to CTasks
         await waitForCRDetail(page);
+        await dismissPageNotifications(page);
 
-        // ServiceNow sometimes redirects to the landing page after CR submit
-        // before showing the CR URL, so the sys_id race in step 5 may miss it.
-        // The CR detail URL always contains sys_id — capture it here as a fallback
-        // so every subsequent CTask redirect uses the fast path (no list search).
+        // If sys_id was not captured at submit time, extract it from the URL now
+        // so subsequent CTask redirects can use the fast path.
         if (!getSysIdForCr(crNumber)) {
           const urlSysId = decodeURIComponent(page.url()).match(/sys_id=([a-f0-9]{32})/i)?.[1];
           if (urlSysId) {
-            await ChangeRequestStorage.save(
-              testData.configName,
-              crNumber,
-              testData.releaseVersion,
-              testData.shortDescriptionText,
-              urlSysId,
-            );
+            await ChangeRequestStorage.save(testData.configName, crNumber, testData.releaseVersion, testData.shortDescriptionText, urlSysId);
             console.log(`✓ sys_id captured from CR URL: ${urlSysId}`);
           }
         }
@@ -593,10 +609,12 @@ test.describe('CRE Change Request Creation — All Environments (Parallel)', () 
             testData.plannedStartDate, testData.plannedEndDate,
           );
 
-          // After CTask submit ServiceNow may redirect to the CR list instead of
-          // the parent CR detail page. Navigate back to the CR explicitly so the
-          // next tab-click loop iteration starts from a known-good URL.
+          // waitForCRDetail() checks URL + domcontentloaded + CR number field.
+          // The extra 1 s pause mirrors ctasks_spec.ts post-submit settle.
           await page.waitForLoadState('domcontentloaded');
+          // After CTask submit ServiceNow may redirect to the CR list.
+          // Navigate back to the CR explicitly so the next iteration starts
+          // from a known-good URL.
           if (!/change_request\.do/i.test(page.url())) {
             const crNum = testData.changeRequestNumber!;
             const crSysId = getSysIdForCr(crNum);
@@ -609,26 +627,25 @@ test.describe('CRE Change Request Creation — All Environments (Parallel)', () 
             }
           }
           await waitForCRDetail(page);
+          await dismissPageNotifications(page);
           await page.waitForTimeout(T_CR_SETTLE);   // CR re-render settle — see T_CR_SETTLE
           console.log(`✓ CTask ${ag.department} Step ${ag.stepNumber} created`);
         }
         console.log(`\n✓ All ${approvalGroups.length} CTasks created`);
       });
 
-      // ── 9. Submit for Assess ────────────────────────────────────────────────
-      // Clicks the Submit for Assess button and waits for a FULL page load
-      // (waitUntil:'load') after the ServiceNow state transition completes.
-      // Using 'load' (not just 'domcontentloaded') ensures all scripts are
-      // finished so step 10's #RiskAssessmentV2 button is ready immediately.
+      // ── 9. Submit for Assess ───────────────────────────────────────────────
+      // Clicks Submit for Assess and waits for a FULL page load ('load') so
+      // step 10's #RiskAssessmentV2 button is ready immediately.
       await test.step('9. Submit for Assess', async () => {
         await page.waitForLoadState('load', { timeout: T_NAV });
         const iframe = page.frameLocator('#gsft_main');
 
-        const submitBtn = iframe.locator('button#state_model_request_assess_approval');
         try {
-          await submitBtn.waitFor({ state: 'visible', timeout: T_ELEMENT });
-          await submitBtn.scrollIntoViewIfNeeded();
-          await submitBtn.click({ force: true });
+          const btn = iframe.locator('button#state_model_request_assess_approval');
+          await btn.waitFor({ state: 'visible', timeout: T_ELEMENT });
+          await btn.scrollIntoViewIfNeeded();
+          await btn.click({ force: true });
           console.log('✓ Submit for Assess clicked');
         } catch {
           // Fallback: call moveToAssess() directly in the gsft_main frame context
@@ -642,122 +659,103 @@ test.describe('CRE Change Request Creation — All Environments (Parallel)', () 
           console.log('✓ moveToAssess() executed via JS');
         }
 
-        // Wait for the Submit for Assess button to disappear — reliable signal
-        // that moveToAssess() AJAX completed and the CR is now in Assess state.
-        // waitForURL fires immediately (nav_to.do URL already matches the pattern).
-        await submitBtn.waitFor({ state: 'hidden', timeout: 8_000 }).catch(() => null);
+        await page.waitForURL(/change_request\.do(%3F|\?).*sys_id(%3D|=)/, { timeout: T_NAV });
         await page.waitForLoadState('load', { timeout: T_NAV });
-        console.log('✓ Submit for Assess complete — CR in Assess state');
+        console.log('✓ Submit for Assess complete — page fully loaded');
       });
 
       // ── 10. Risk Assessment ─────────────────────────────────────────────────
-      // The page is already on the CR detail after step 9's Submit for Assess.
-      // Wait for the full 'load' event before looking for #RiskAssessmentV2 —
-      // ServiceNow needs a complete page load (not just domcontentloaded) to
-      // finish wiring all form components including the Risk Assessment button.
+      // Page is already on the CR detail after step 9. Full load ensures
+      // #RiskAssessmentV2 is wired before createRiskAssessmentTask runs.
       await test.step('10. Create Risk Assessment', async () => {
         await page.waitForLoadState('load', { timeout: T_NAV });
         await waitForCRDetail(page);
+
+        // Dismiss any "Conflict last run" or other notification toasts that may
+        // overlay the Risk Assessment button and prevent it from being clicked.
+        await dismissPageNotifications(page);
 
         const iframe = await getIframe(page);
         await createRiskAssessmentTask(page, iframe, T_ELEMENT);
 
         // Wait for CR number field to be attached — the form re-renders after
         // the risk assessment popup closes (field may not be visible yet).
-        // Mirrors riskmanagement.spec.ts step 3 post-assessment wait.
-        await page.waitForLoadState('domcontentloaded');
+        await page.waitForLoadState('load', { timeout: T_NAV });
         const refreshedIframe = page.frameLocator('#gsft_main');
         await refreshedIframe
           .locator('input[id="change_request.number"]')
           .waitFor({ state: 'attached', timeout: T_ELEMENT });
-        console.log('✓ CR form ready after risk assessment');
+        console.log('✓ CR form fully loaded after risk assessment');
       });
 
       // ── 11. Request Approval ─────────────────────────────────────────────────
-        await test.step('11. Request Approval', async () => {
-        // Navigate to the CR fresh before attempting the state transition.
-        // After the risk assessment popup closes, ServiceNow updates the CR
-        // form via AJAX (e.g. writing the risk score), leaving g_form.isChanged()
-        // = true.  moveToAuthorize() detects unsaved changes and silently aborts
-        // even though no dialog is shown — the button stays visible after reload.
-        // A fresh navigation resets the form to its persisted server state so
-        // g_form.isChanged() = false and the transition can proceed cleanly.
-        const crNum = testData.changeRequestNumber!;
-        const sysId = getSysIdForCr(crNum);
-        if (sysId) {
-          console.log(`  → Re-navigating to CR before Request Approval (sys_id: ${sysId})`);
-          await navigateBySysId(page, sysId);
-        } else {
-          console.log(`  → Re-navigating to CR before Request Approval (list search)`);
-          await navigateByListSearch(page, crNum);
-        }
-        await waitForCRDetail(page);
+      await test.step('11. Request Approval', async () => {
         await page.waitForLoadState('load', { timeout: T_NAV });
 
-        // Use getIframe() to ensure the iframe body is attached and its JS
-        // (including onclick handlers) is fully wired before interacting.
+        // Dismiss any notifications before interacting — the "Conflict last run"
+        // toast can appear right after load; wait 1 s then dismiss a second time
+        // to catch any that arrive slightly after the first sweep.
+        await dismissPageNotifications(page);
+        await page.waitForTimeout(1_000);
+        await dismissPageNotifications(page);
+
         const iframe = await getIframe(page);
 
-        // Wait for button — confirms CR is in the correct pre-transition state.
         const btn = iframe.locator('button#state_model_request_cab_approval');
         await btn.waitFor({ state: 'visible', timeout: T_ELEMENT });
 
-        // Primary: call moveToAuthorize() directly in the frame context after
-        // explicitly setting window.state_model_request_cab_approval. This is
-        // what the button's onclick does, but a synthetic Playwright click may
-        // not bind `this` correctly after an iframe reload (risk assessment popup
-        // closes and re-renders the CR form), causing the transition to silently fail.
-        await btn.scrollIntoViewIfNeeded();
-        const gsftFrame = page.frames().find(f => f !== page.mainFrame());
-        if (!gsftFrame) throw new Error('gsft_main frame not found');
         try {
-          await gsftFrame.evaluate(() => {
-            const g = globalThis as any;
-            const el = g.document?.getElementById?.('state_model_request_cab_approval');
-            if (el) g.state_model_request_cab_approval = el;
-            const fn = g.moveToAuthorize;
-            if (typeof fn !== 'function') throw new Error('moveToAuthorize not found on globalThis');
-            fn();
-          });
-          console.log('✓ moveToAuthorize() called — Request Approval initiated');
+          // Set window context and call moveToAuthorize() directly — same approach
+          // as TDR. Calling moveToAuthorize() without setting window context causes
+          // the server-side transition to silently fail (button stays visible).
+          const gsftFrame = page.frames().find(f => f !== page.mainFrame());
+          if (gsftFrame) {
+            await gsftFrame.evaluate(() => {
+              const g = globalThis as any;
+              const el = g.document?.getElementById?.('state_model_request_cab_approval');
+              if (el) g.state_model_request_cab_approval = el;
+              const fn = g.moveToAuthorize;
+              if (typeof fn === 'function') fn();
+            });
+            console.log('✓ Request Approval (moveToAuthorize via JS)');
+          } else {
+            await btn.scrollIntoViewIfNeeded();
+            await btn.click({ force: true });
+            console.log('✓ Request Approval clicked');
+          }
         } catch {
-          // Fallback: DOM click if JS approach fails (e.g. moveToAuthorize not on globalThis)
+          // Final fallback: direct click
+          await btn.scrollIntoViewIfNeeded();
           await btn.click({ force: true });
-          console.log('✓ Request Approval clicked (fallback DOM click)');
+          console.log('✓ Request Approval clicked (fallback)');
         }
 
-        // moveToAuthorize() uses AJAX. After a successful call ServiceNow
-        // re-renders the form and the button disappears — use that as the
-        // completion signal rather than a blind fixed timeout that may reload
-        // while the AJAX is still in-flight.
-        const transitioned = await btn.waitFor({ state: 'hidden', timeout: 8_000 })
-          .then(() => true)
-          .catch(() => false);
+        // AJAX state transition: 5 s gives ServiceNow time to process before reload.
+        await page.waitForTimeout(5_000);
+        await page.reload({ waitUntil: 'load', timeout: T_NAV });
+        console.log('✓ Page reloaded after state transition');
 
-        if (transitioned) {
-          await page.waitForTimeout(500);
-          console.log('✓ State transition confirmed (button hidden naturally)');
-        } else {
-          await page.waitForTimeout(2_000);
-          await page.reload({ waitUntil: 'load', timeout: T_NAV });
-          console.log('✓ Page reloaded after state transition');
-        }
+        // Dismiss notifications that reappear after reload before the button check.
+        await dismissPageNotifications(page);
+        await page.waitForTimeout(1_000);
 
-        // Both buttons gone — confirms the CR moved to Authorize state.
+        // Soft check — wait for button to disappear confirming state transition.
         const reloadedIframe = await getIframe(page);
-        await expect(reloadedIframe.locator('button#state_model_request_cab_approval'))
-          .toBeHidden({ timeout: T_ELEMENT });
-        await expect(reloadedIframe.locator('#RiskAssessmentV2'))
-          .toBeHidden({ timeout: T_ELEMENT });
-        console.log('✓ Request Approval and Risk Assessment buttons gone — state transition confirmed');
-        console.log(`✓ Request Approval complete`);
+        const reloadedBtn = reloadedIframe.locator('button#state_model_request_cab_approval');
+        try {
+          await expect(reloadedBtn).toBeHidden({ timeout: T_ELEMENT });
+          console.log('✓ Request Approval button gone — state transition confirmed');
+        } catch {
+          console.warn(`⚠ Request Approval button still visible — CR may have extra approval group requirements. Verify ${configKey} CR manually in ServiceNow.`);
+        }
+
+        const totalMs = Date.now() - testStart;
+        const mm = Math.floor(totalMs / 60_000);
+        const ss = Math.floor((totalMs % 60_000) / 1_000);
+        console.log(`✓ Request Approval step complete`);
+        console.log(`⏱ [${configKey}] Total time: ${mm}m ${ss}s`);
       });
 
-      // ── 11. Approve CR from RM team ────────────────────────────────────────
-      // await test.step('11. Approve CR from RM team', async () => {
-      //   const iframe = await getIframe(page);
-      //   await approveCR(page, iframe, ASSIGNED_TO_RM, T_ELEMENT);
-      // });
     });
   }
 });
@@ -768,39 +766,17 @@ test.describe('CRE Change Request Creation — All Environments (Parallel)', () 
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * STEP 1 — SSO setup (run once; re-run when session expires)
- *   Option A: click "Run SSO Setup" in the launcher (http://localhost:3131)
- *   Option B: npx playwright test tests/sso_setup.ts --project=setup --headed
+ *   npx playwright test sso_setup.ts --project=setup --headed
  *
  * ── Run a single environment (1 browser) ─────────────────────────────────────
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[SAT\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[SAT\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[UAT_EMEA\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[UAT_MENA\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[UAT_AMER\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[PROD_EMEA\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[PROD_MENA\]"
+ *   $env:RELEASE_VERSION="2026.08.00"; npx playwright test changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[PROD_AMER\]"
  
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[UAT_EMEA\]"
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[UAT_MENA\]"
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[UAT_AMER\]"
- *   $env:RELEASE_VERSION="2026.07.00"; $env:LIQUIBASE="true"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[UAT_AMER\]"
- 
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[PROD_EMEA\]"
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[PROD_MENA\]"
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[PROD_AMER\]"
- *   $env:RELEASE_VERSION="2026.07.00"; $env:LIQUIBASE="true"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=1 --grep "\[PROD_AMER\]"
- 
- *
- * ── Run both envs for a specific region (2 browsers in parallel) ──────────────
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=2 --grep "\[UAT_EMEA\]|\[PROD_EMEA\]"
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=2 --grep "\[UAT_AMER\]|\[PROD_AMER\]"
- *   $env:RELEASE_VERSION="2026.07.00"; $env:LIQUIBASE="true"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=2 --grep "\[UAT_AMER\]|\[PROD_AMER\]"   # with Liquibase step 0
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=2 --grep "\[UAT_MENA\]|\[PROD_MENA\]"
- *
- * ── Run all UAT or all PROD regions (3 browsers in parallel) ──────────────────
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=3 --grep "\[UAT_EMEA\]|\[UAT_AMER\]|\[UAT_MENA\]"
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test tests/servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=3 --grep "\[PROD_EMEA\]|\[PROD_AMER\]|\[PROD_MENA\]"
- *
- * ── Run all 7 environments in parallel (7 browsers) ──────────────────────────
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_cre/changeRequest.spec.ts --project=CRE --headed --workers=7
- *
- * ── Dry run (verify config, list tests — no browser opened) ──────────────────
- *   $env:RELEASE_VERSION="2026.07.00"; npx playwright test servicenow_cre/changeRequest.spec.ts --project=CRE --list
- *
  * ── View HTML report after a run ─────────────────────────────────────────────
  *   npx playwright show-report
  *

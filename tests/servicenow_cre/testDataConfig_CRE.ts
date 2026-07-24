@@ -45,23 +45,6 @@ export interface EnvironmentTestData {
   sysId?:                    string;
 }
 
-export interface CtaskRecord {
-  step:        number;
-  department:  string;
-  ctaskNumber: string;
-}
-
-export interface RiskAssessmentRecord {
-  instanceSysId:     string;
-  questionsTotal:    number;
-  questionsAnswered: number;
-  aclFallbackUsed:   boolean;
-  riskValue?:        string;
-  submitted:         boolean;
-}
-
-export type CrFinalState = 'New' | 'Assess' | 'Authorize' | 'Failed';
-
 interface CrEntry {
   crNumber:        string;
   crUrl:           string;
@@ -70,13 +53,6 @@ interface CrEntry {
   configName:      string;
   releaseVersion:  string;
   shortDescription: string;  // CR short description — used by teams_meeting.py for the Teams description line
-  // ── Step 2/3/4 workflow detail — populated incrementally as createCR_api.ts
-  // progresses the CR through Assess → Risk Assessment → Authorize ──────────
-  assessState?:     string;
-  authorizeState?:  string;
-  finalState?:      CrFinalState;
-  ctasks?:          CtaskRecord[];
-  riskAssessment?:  RiskAssessmentRecord;
 }
 
 type Registry = Record<string, Record<string, CrEntry>>;
@@ -116,7 +92,7 @@ const MasterConfigSchema = z.object({
   deployment_times: z.object({ start: TimeString, end: TimeString }),
   releases: z.object({
     schedule: z.record(
-      z.string().regex(/^\d{4}\.\d{2}\.\d{2}$/, 'Release version must be YYYY.MM.NN (e.g. "2026.06.00" or "2026.06.01")'),
+      z.string().regex(/^\d{4}\.\d{2}\.00$/, 'Release version must be YYYY.MM.00'),
       ReleaseEntrySchema,
     ),
   }),
@@ -203,8 +179,7 @@ const RELEASE_DETAILS = {
   },
 
   get backoutVersion(): string {
-    const [year, rel, patch] = this.version.split('.').map(Number);
-    if (patch > 0) return `${year}.${String(rel).padStart(2, '0')}.00`;
+    const [year, rel] = this.version.split('.').map(Number);
     return rel > 1
       ? `${year}.${String(rel - 1).padStart(2, '0')}.00`
       : `${year - 1}.10.00`;
@@ -329,49 +304,18 @@ function buildConfig(def: ConfigDef): EnvironmentTestData {
 }
 
 export const TEST_CONFIGURATIONS: Record<ConfigKey, EnvironmentTestData> =
-  Object.fromEntries(CONFIG_DEFS.map(d => [d.configName, buildConfig(d)])) as Record<ConfigKey, EnvironmentTestData>;
+  // Guard: only evaluate buildConfig() when RELEASE_VERSION is set.
+  // riskmanagement.spec.ts imports this module without RELEASE_VERSION — the
+  // guard prevents getter access from throwing "No schedule entry for release undefined".
+  process.env.RELEASE_VERSION
+    ? (Object.fromEntries(CONFIG_DEFS.map(d => [d.configName, buildConfig(d)])) as Record<ConfigKey, EnvironmentTestData>)
+    : ({} as Record<ConfigKey, EnvironmentTestData>);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CHANGE REQUEST STORAGE
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Single source of truth for the ServiceNow instance host — used both for
-// building UI record links here AND for the Table API base URL in
-// createCR_api.ts (which imports SN_BASE_URL from this module). Previously
-// these were two separate hardcoded strings that drifted apart: the API
-// created CRs against the `dev` instance while this file linked to the
-// bare `trenterprise` (prod) host, so every generated link 404'd with
-// "record not found" even though the CR was real.
-//
-// Toggled by SN_INSTANCE — same env var, same convention as
-// testDataConfig_TDR.ts and playwright.config.ts, read from .env:
-//   SN_INSTANCE=prod   → https://trenterprise.service-now.com    (PingID/MFA required)
-//   (unset / anything else) → https://trenterprisedev.service-now.com (no PingID)
-export const SN_BASE_URL = process.env.SN_INSTANCE === 'prod'
-  ? 'https://trenterprise.service-now.com'
-  : 'https://trenterprisedev.service-now.com';
-
-/**
- * Builds a nav_to.do URL for browser navigation to a CR by sys_id.
- *
- * nav_to.do loads the full ServiceNow portal shell (required so the form
- * renders inside #gsft_main for iframe-based interaction) — different from
- * generateCrUrl() above, which builds a stored/shareable deep-link and does
- * NOT go through nav_to.do. Keep these two separate; they serve different
- * purposes and are not interchangeable.
- *
- * Was previously duplicated ~6 times across changeRequest_spec.ts,
- * ctasks_spec.ts, and riskmanagement_spec.ts, each with its own hardcoded
- * host — which is exactly how the host/format drift bug happened in the
- * first place. One helper, one host (SN_BASE_URL), used everywhere.
- */
-export function buildNavToCrUri(sysId: string): string {
-  const listFilter = encodeURIComponent(
-    'active=true^short_description>=Content Rate Extract^ORDERBYshort_description',
-  );
-  const recordUri = encodeURIComponent(`change_request.do?sys_id=${sysId}&sysparm_record_list=${listFilter}`);
-  return `${SN_BASE_URL}/nav_to.do?uri=${recordUri}`;
-}
+const SERVICENOW_BASE = 'https://trenterprise.service-now.com/change_request.do';
 
 // ─── Teams description helper ─────────────────────────────────────────────────
 // Generates the linked CR line for Teams meeting descriptions, e.g.:
@@ -422,7 +366,7 @@ async function acquireRegistryLock(): Promise<() => void> {
     if (fs.existsSync(REGISTRY_LOCK_FILE)) {
       const age = Date.now() - fs.statSync(REGISTRY_LOCK_FILE).mtimeMs;
       if (age > REGISTRY_LOCK_STALE) {
-        try { fs.unlinkSync(REGISTRY_LOCK_FILE); } catch { /* race — another worker beat us */ }
+        try { fs.unlinkSync(REGISTRY_LOCK_FILE); } catch { /* race — another process beat us */ }
       }
     }
 
@@ -448,44 +392,21 @@ export const ChangeRequestStorage = {
   // Registry lives alongside testDataConfig_CRE.ts in the CRE/ directory
   getStoragePath: () => path.join(__dirname, 'change_request_registry.yaml'),
 
-  /**
-   * Builds a direct-record URL for a change request.
-   *
-   * BUGFIX HISTORY:
-   *   v1 (broken): `${prod_host}/change_request.do?sysparm_query=number=CHGxxxx`
-   *     - `sysparm_query` only works on *list* views (change_request_list.do);
-   *       the single-record form view needs `sys_id`.
-   *     - Host was the prod-named instance while CRs are actually created
-   *       against the dev instance — link pointed at a record that doesn't
-   *       exist there → "record not found".
-   *   v2 (still broken): bare `${SN_BASE_URL}/change_request.do?sys_id=<id>`
-   *     - Right host, right sys_id, but this instance's Now UI (Polaris/Next
-   *       Experience shell) doesn't reliably resolve the un-wrapped classic
-   *       form URL.
-   *   v3 (this version): the actual URL ServiceNow's own UI generates when
-   *     you open a CR — the classic form wrapped in the Now UI shell
-   *     (`/now/nav/ui/classic/params/target/<double-encoded classic url>`),
-   *     including sys_id AND a sysparm_record_list filtered to this CR
-   *     number. Verified byte-for-byte against a URL copied out of the live
-   *     UI — this is the format to keep.
-   *
-   * Falls back to a number-filtered link (still v3-wrapped) if sysId wasn't
-   * captured — better than nothing, though it opens a filtered list rather
-   * than the record directly.
-   */
   generateCrUrl(crNumber: string, releaseVersion: string, sysId?: string): string {
-    const recordListQuery = `active=true^number=${crNumber}^ORDERBYnumber`;
-
-    const classicPath = sysId
-      ? `change_request.do?sys_id=${sysId}` +
-        `&sysparm_record_target=change_request` +
-        `&sysparm_record_row=1` +
-        `&sysparm_record_rows=1` +
-        `&sysparm_record_list=${encodeURIComponent(recordListQuery)}`
-      // Fallback when sys_id wasn't captured: number-filtered list view.
-      : `change_request_list.do?sysparm_query=${encodeURIComponent(`number=${crNumber}`)}`;
-
-    return `${SN_BASE_URL}/now/nav/ui/classic/params/target/${encodeURIComponent(classicPath)}`;
+    // sysparm_record_list provides list-navigation context (prev/next arrows in SNOW UI).
+    // Filter: active CRE CRs ordered by short_description — single-level encoded (standard URL encoding).
+    // sysparm_record_row / sysparm_record_rows are intentionally omitted — they are runtime pagination
+    // values that SNOW adds dynamically and are meaningless in a stored link.
+    const listFilter = encodeURIComponent(
+      'active=true^short_description>=Content Rate Extract^ORDERBYshort_description',
+    );
+    if (sysId) {
+      // Preferred: deep-link directly to the CR record by sys_id.
+      // This is the same format as the URL in your browser when you open a CR directly.
+      return `${SERVICENOW_BASE}?sys_id=${sysId}&sysparm_record_list=${listFilter}`;
+    }
+    // Fallback: open list view filtered to this CR number (used when sys_id was not captured).
+    return `${SERVICENOW_BASE}?sysparm_query=${encodeURIComponent(`number=${crNumber}`)}`;
   },
 
   loadAll(): Registry {
@@ -506,52 +427,36 @@ export const ChangeRequestStorage = {
    * Parallel-safe save: acquires a file lock before reading+writing the YAML
    * registry so concurrent workers (e.g. UAT_MENA + PROD_MENA) don't overwrite
    * each other's entries.
-   *
-   * Merges with any existing entry for this CR rather than replacing it, so
-   * callers can save incrementally as the CR progresses through its workflow
-   * (e.g. once right after creation, again after CTasks are created, again
-   * after each state transition) without needing to re-pass every field each
-   * time. `sysId` only needs to be passed once — later calls that omit it
-   * keep the previously-saved sys_id (and therefore the correct crUrl).
    */
-  async save(
-    configName:       string,
-    crNumber:         string,
-    releaseVersion:   string,
-    shortDescription: string,
-    sysId?:           string,
-    extra?:           Partial<Pick<CrEntry, 'assessState' | 'authorizeState' | 'finalState' | 'ctasks' | 'riskAssessment'>>,
-  ): Promise<void> {
+  async save(configName: string, crNumber: string, releaseVersion: string, shortDescription: string, sysId?: string): Promise<void> {
     const release = await acquireRegistryLock();
     try {
       const registry = this.loadAll();
-      registry[releaseVersion] ??= {};
-      const existing = registry[releaseVersion][crNumber];
-
-      // Keep whichever sys_id we have — a new one passed now, or one saved earlier.
-      const effectiveSysId = sysId ?? existing?.crSysId;
-
       const entry: CrEntry = {
-        ...existing,
         crNumber,
-        crUrl:            this.generateCrUrl(crNumber, releaseVersion, effectiveSysId),
+        crUrl:            this.generateCrUrl(crNumber, releaseVersion, sysId),
         timestamp:        new Date().toISOString(),
         configName,
         releaseVersion,
         shortDescription,
-        ...(effectiveSysId && { crSysId: effectiveSysId }),
-        ...extra,
+        ...(sysId && { crSysId: sysId }),
       };
 
+      registry[releaseVersion] ??= {};
       registry[releaseVersion][crNumber] = entry;
 
       fs.writeFileSync(this.getStoragePath(), yaml.dump({ change_request_registry: registry }, { lineWidth: 200 }), 'utf-8');
       console.log(`✓ CR ${crNumber} (${releaseVersion} / ${configName}) saved to registry`);
-      if (effectiveSysId) console.log(`  Sys ID: ${effectiveSysId}`);
+      if (sysId) console.log(`  Sys ID: ${sysId}`);
 
       // Mirror to all teams_meeting_*/config/change_request_registry.yaml (same format)
       for (const mirrorPath of REGISTRY_MIRROR_PATHS) {
         try {
+          // Skip if the parent directory doesn't exist (e.g. on dev machines
+          // that don't have the teams_meeting modules checked out).
+          const mirrorDir = path.dirname(mirrorPath);
+          if (!fs.existsSync(mirrorDir)) continue;
+
           let mirror: Record<string, any> = {};
           if (fs.existsSync(mirrorPath)) {
             const raw = yaml.load(fs.readFileSync(mirrorPath, 'utf-8')) as any;
@@ -625,10 +530,11 @@ const step = (shortDesc: string): StepDescription => ({
 // Shared STEP 0 — identical across all UAT & PROD regions
 const STEP_0: StepDescription = {
   shortDescription:    'STEP 0: Bring Down Services Before Deployment',
-  detailedDescription: 'STEP 0: Bring Down Services Before Deployment\nStop the following SDM, STAGING and CE services before starting the deployment:\n\na200206-idt-cre-sdm-us-east-1-prod-ecs-service\na200206-idt-cre-staging-us-east-1-prod-ecs-service\na200206-idt-cre-ce-us-east-1-prod-ecs-service',
+  detailedDescription: 'STEP 0: Bring Down Services Before Deployment\nStop the following SDM, STAGING and CE services before starting the deployment:\n\na200206-idt-cre-sdm-us-east-1-prod-ecs-service\na200206-idt-cre-staging-us-east-1-prod-ecs-service',
 };
 
 const EMEA_STEPS: Record<number, StepDescription> = {
+  0: STEP_0,
   1: step('STEP1: Deploy a208263_ocre-app-ce-stg-sdm LB changes to CRE {RELEASEVERSION} AWS EMEA {ENVIRONMENT}'),
   2: step('STEP2: Deploy a208263_ocre-app-ce-stg-sdm APP changes to CRE {RELEASEVERSION} AWS EMEA {ENVIRONMENT}'),
   3: step('STEP3: QA Validation: CRE {RELEASEVERSION} | APP | AWS EMEA {ENVIRONMENT}'),
@@ -651,7 +557,7 @@ const MENA_STEPS: Record<number, StepDescription> = {
 
 // UAT and PROD share the same region structure
 const SHARED_REGION_CONFIG: RegionConfig = {
-  EMEA: { ctasks: { rm: [],  devops: [],         techops: [1, 2],          qa: [3] }, stepDescriptions: EMEA_STEPS },
+  EMEA: { ctasks: { rm: [],  devops: [],         techops: [0, 1, 2],       qa: [3] }, stepDescriptions: EMEA_STEPS },
   AMER: { ctasks: { rm: [],  devops: [],         techops: [0, 1, 2, 3, 4], qa: [5] }, stepDescriptions: AMER_STEPS },
   MENA: { ctasks: { rm: [],  devops: [],         techops: [1, 2],          qa: [3] }, stepDescriptions: MENA_STEPS },
 };
@@ -688,17 +594,10 @@ export function getCtaskConfig(env: string, region?: string): CtaskSteps {
   if (env === 'SAT') return envs.SAT.ctasks;
   const regionMap = envs[env as 'UAT' | 'PROD'];
   if (regionMap && region && regionMap[region as 'EMEA' | 'AMER' | 'MENA']) {
-    const base = regionMap[region as 'EMEA' | 'AMER' | 'MENA'].ctasks;
-    // Step 0 (Bring Down Services) is only needed for AMER when there are Liquibase
-    // schema changes in the release. Pass LIQUIBASE=true to include it; otherwise
-    // step 0 is excluded and the deploy starts directly from STEP1.
-    if (region === 'AMER' && process.env.LIQUIBASE !== 'true') {
-      return { ...base, techops: [...base.techops].filter(s => s !== 0) } as CtaskSteps;
-    }
-    return base as CtaskSteps;
+    return regionMap[region as 'EMEA' | 'AMER' | 'MENA'].ctasks;
   }
   console.warn(`CTask config not found for ${env}/${region}, falling back to UAT/EMEA`);
-  return envs.UAT.EMEA.ctasks as CtaskSteps;
+  return envs.UAT.EMEA.ctasks;
 }
 
 export function getCtaskDescriptions(

@@ -8,74 +8,52 @@ TDR configs run in **mandatory sequential order** — each environment depends o
 GENERATE_DUMP_PROD → UAT Data Refresh → QA Data Refresh
 ```
 
-> **New to Playwright?** See the [Playwright Primer](#playwright-primer) section before you start.  
-> **Checking in for the first time?** Jump to [Checking In to GitHub](#checking-in-to-github).
-
 ---
 
 ## Table of Contents
 
-1. [Playwright Primer](#playwright-primer)
-2. [Project Structure](#project-structure)
-3. [Prerequisites](#prerequisites)
-4. [Installing Dependencies](#installing-dependencies)
-5. [First-Time Setup](#first-time-setup)
-6. [Environment Variables](#environment-variables)
-7. [Running the Tests](#running-the-tests)
-8. [How It Works](#how-it-works)
-9. [Updating Release Data](#updating-release-data)
-10. [Configs and CTasks](#configs-and-ctasks)
-11. [Files Reference](#files-reference)
-12. [Troubleshooting](#troubleshooting)
-13. [Checking In to GitHub](#checking-in-to-github)
-14. [Demo Notes](#demo-notes)
-
----
-
-## Playwright Primer
-
-If you have never used Playwright before, here is what you need to know:
-
-- **Playwright** is a Node.js library for automating browsers (Chrome, Firefox, Edge). This project uses Google Chrome.
-- **Tests** are TypeScript files ending in `.spec.ts`. Each test opens a real Chrome window and clicks through ServiceNow the same way a human would.
-- **`npx playwright test`** is the main command to run tests. You never need to open a browser manually.
-- **`--headed`** means you can see the browser window while the test runs. Omit it for headless (invisible) mode.
-- **`--grep`** lets you run only tests whose name matches a pattern, e.g. `--grep "\[UAT\]"`.
-- **`--workers=N`** controls how many browser windows open in parallel.
-- **`--list`** lists tests without running them — useful for a quick sanity check.
-- **`storageState`** is Playwright's way of reusing a saved login session so you only have to log in once.
-- **HTML Report** (`npx playwright show-report`) gives you a step-by-step replay of every test run, with screenshots and traces on failure.
+1. [Project Structure](#project-structure)
+2. [Prerequisites](#prerequisites)
+3. [Installing Dependencies](#installing-dependencies)
+4. [First-Time Setup](#first-time-setup)
+5. [Environment Variables](#environment-variables)
+6. [Running the Tests](#running-the-tests)
+7. [How It Works](#how-it-works)
+8. [Updating Release Data](#updating-release-data)
+9. [Configs and CTasks](#configs-and-ctasks)
+10. [Files Reference](#files-reference)
+11. [Troubleshooting](#troubleshooting)
+12. [Checking In to GitHub](#checking-in-to-github)
+13. [Demo Notes](#demo-notes)
 
 ---
 
 ## Project Structure
 
 ```
-playwright_servicenow/              ← repo root
-├── playwright.config.ts            ← shared config (CRE + TDR projects, workers, reporters)
-├── package.json                    ← Node.js dependencies
-├── tsconfig.json                   ← TypeScript compiler settings
-├── .env                            ← SSO credentials — LOCAL ONLY, never commit
-├── .env.example                    ← safe template to share with the team
-├── .gitignore                      ← excludes .env, auth files, reports, node_modules
+playwright_scripts/servicenow_tdr/      ← project root (run all commands from here)
+├── playwright.config.ts                ← browser config, projects, reporters
+├── package.json                        ← Node.js dependencies
+├── tsconfig.json                       ← TypeScript compiler settings
+├── .env                                ← SSO credentials — LOCAL ONLY, never commit
+├── .env.example                        ← safe template to share with the team
+├── .gitignore                          ← excludes .env, auth files, reports, node_modules
 │
-├── tests/
-│   ├── sso_setup.ts                ← shared SSO login — saves auth_servicenow.json
-│   ├── helpers.ts                  ← shared browser helper functions
-│   │
-│   └── servicenow_tdr/             ← TDR test folder (you are here)
-│       ├── changeRequest.spec.ts   ← creates the Change Request in ServiceNow
-│       ├── ctasks.spec.ts          ← adds CTasks to an existing CR
-│       ├── riskmanagement.spec.ts  ← submits Risk Assessment and "Submit for Assess"
-│       ├── testDataConfig_TDR.ts   ← all test data, date calculations, CTask config
-│       ├── tdr_release_schedule.yaml ← release dates (update every sprint)
-│       ├── tdr_flow.html           ← interactive flow diagram (open in browser)
-│       └── README.md               ← this file
+├── sso_setup.ts                        ← SSO login — saves auth_servicenow.json
+├── helpers.ts                          ← shared browser helper functions
+│
+├── changeRequest.spec.ts               ← creates the Change Request in ServiceNow
+├── ctasks.spec.ts                      ← adds CTasks to an existing CR
+├── riskmanagement.spec.ts              ← submits Risk Assessment and "Submit for Assess"
+├── testDataConfig_TDR.ts               ← all test data, date calculations, CTask config
+├── tdr_release_schedule.yaml           ← release dates (update every sprint)
+├── tdr_flow.html                       ← interactive flow diagram (open in browser)
+└── README.md                           ← this file
 ```
 
 **Generated at runtime — not committed to Git:**
-- `auth_servicenow.json` — saved browser session (valid ~8 hours, shared with CRE)
-- `servicenow_tdr/change_request_registry.yaml` — CR numbers created per run
+- `auth_servicenow.json` — saved browser session (valid ~8 hours)
+- `change_request_registry.yaml` — CR numbers created per run
 - `playwright-report/` — HTML test report
 - `test-results/` — raw test artefacts (screenshots, videos, traces on failure)
 
@@ -154,10 +132,10 @@ Enroll at https://pingid.pingidentity.com if not already done.
 
 ## Installing Dependencies
 
-Run **once** from the **repo root** (`playwright_servicenow/`):
+Run **once** from `playwright_scripts\servicenow_tdr\`:
 
 ```powershell
-cd playwright_servicenow
+cd playwright_scripts\servicenow_tdr
 npm install
 ```
 
@@ -165,14 +143,13 @@ This installs all packages listed in `package.json`:
 
 | Package | Version | Purpose |
 |---|---|---|
-| `@playwright/test` | ^1.57.0 | Test runner, browser automation, assertions |
-| `js-yaml` | ^4.1.1 | Parse `tdr_release_schedule.yaml` and `change_request_registry.yaml` |
+| `@playwright/test` | ^1.61.1 | Test runner, browser automation, assertions |
+| `js-yaml` | ^5.2.1 | Parse `tdr_release_schedule.yaml` and `change_request_registry.yaml` |
 | `@types/js-yaml` | ^4.0.9 | TypeScript type definitions for js-yaml |
-| `dotenv` | ^17.2.3 | Load `.env` credentials into `process.env` at startup |
-| `zod` | ^4.3.6 | Runtime schema validation for the YAML release schedule |
-| `xlsx` | ^0.18.5 | Excel/spreadsheet support (used by other scripts in this repo) |
-| `typescript` | ^6.0.2 | TypeScript compiler (dev) |
-| `@types/node` | ^25.0.3 | TypeScript definitions for Node.js built-ins (fs, path, etc.) |
+| `dotenv` | ^17.4.2 | Load `.env` credentials into `process.env` at startup |
+| `zod` | ^4.4.3 | Runtime schema validation for the YAML release schedule |
+| `typescript` | ^6.0.3 | TypeScript compiler (dev) |
+| `@types/node` | ^26.1.0 | TypeScript definitions for Node.js built-ins (fs, path, etc.) |
 
 > **No `npx playwright install` needed.**  
 > Because `channel: 'chrome'` is set in `playwright.config.ts`, Playwright uses the Chrome binary already on your machine. Downloading Playwright's bundled browsers is not required and may be blocked by the corporate proxy.
@@ -181,11 +158,11 @@ This installs all packages listed in `package.json`:
 
 ## First-Time Setup
 
-### Step 1 — Clone the repository
+### Step 1 — Clone the repository and navigate to the project
 
 ```powershell
 git clone <repository-url>
-cd playwright_servicenow
+cd a206449_IDT_ReleaseManagement\playwright_scripts\servicenow_tdr
 ```
 
 ### Step 2 — Install dependencies
@@ -214,7 +191,7 @@ SSO_URL="https://sso.thomsonreuters.com/idp/SSO.saml2"
 
 | Variable | Value |
 |---|---|
-| `SSO_USERNAME` | Your TR employee ID (e.g. `6106377`) |
+| `SSO_USERNAME` | Your TR employee ID (e.g. `123456`) |
 | `SSO_PASSWORD` | Your Windows / SSO login password |
 | `SSO_URL` | `https://sso.thomsonreuters.com/idp/SSO.saml2` (do not change) |
 
@@ -226,7 +203,7 @@ SSO_URL="https://sso.thomsonreuters.com/idp/SSO.saml2"
 This opens Chrome, logs in to ServiceNow via SSO, saves the browser session, then closes.
 
 ```powershell
-npx playwright test tests/sso_setup.ts --project=setup --headed
+npx playwright test sso_setup.ts --project=setup --headed
 ```
 
 **What happens:**
@@ -258,102 +235,63 @@ All environment variables are set in PowerShell **inline** before the test comma
 
 ## Running the Tests
 
-All commands are run from the **repo root** (`playwright_servicenow/`).  
+All commands are run from `playwright_scripts\servicenow_tdr\`.  
 Always set `RELEASE_VERSION` before running any TDR spec.
 
----
+### Run all 3 configs (sequential — recommended)
 
-### Full run — all 3 configs, 3 parallel browsers
+TDR configs must follow order: GENERATE_DUMP_PROD → UAT → QA (each depends on the previous).
 
 ```powershell
-$env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=3
+$env:RELEASE_VERSION="2026.07.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=1
 ```
-
-Opens 3 Chrome windows simultaneously — GENERATE_DUMP_PROD, UAT, QA.
-
----
 
 ### Run a single config
 
 ```powershell
 # GENERATE_DUMP_PROD only
-$env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[GENERATE_DUMP_PROD\]"
+$env:RELEASE_VERSION="2026.07.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[GENERATE_DUMP_PROD\]"
 
 # UAT only
-$env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[UAT\]"
+$env:RELEASE_VERSION="2026.07.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[UAT\]"
 
 # QA only
-$env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[QA\]"
+$env:RELEASE_VERSION="2026.07.00"; npx playwright test changeRequest.spec.ts --project=TDR --headed --workers=1 --grep "\[QA\]"
 ```
 
----
+### Run CTasks only (on existing CRs)
 
-### Run any two configs in parallel
-
-```powershell
-$env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=2 --grep "\[UAT\]|\[QA\]"
-$env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --headed --workers=2 --grep "\[GENERATE_DUMP_PROD\]|\[UAT\]"
-```
-
----
-
-### Run CTasks only (after CRs already exist)
-
-Use when the CR was created in a previous run and you only need to add CTasks.
-
-```powershell
-# Single config — looks up CR from registry automatically
-$env:CR_CONFIG="UAT"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/ctasks.spec.ts --project=TDR --headed --workers=1
-
-# Multiple configs in parallel
-$env:CR_CONFIG="UAT,QA"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/ctasks.spec.ts --project=TDR --headed --workers=2
-
-# All 3 configs
-$env:CR_CONFIG="GENERATE_DUMP_PROD,UAT,QA"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/ctasks.spec.ts --project=TDR --headed --workers=3
-
-# By explicit CR number (bypasses registry)
-$env:CR_NUMBERS="CHG0233029"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/ctasks.spec.ts --project=TDR --headed --workers=1
-
-# Multiple explicit CRs in parallel
-$env:CR_NUMBERS="CHG0233029,CHG0233030"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/ctasks.spec.ts --project=TDR --headed --workers=2
-
-# Target a specific config when using explicit CR numbers
-$env:CR_NUMBERS="CHG0233029"; $env:CR_CONFIG="UAT"; $env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/ctasks.spec.ts --project=TDR --headed --workers=1
-```
-
----
-
-### Run Risk Assessment only (after CRs already exist)
+Use this when CRs already exist and you only need to add CTasks.
 
 ```powershell
 # By config name — single
-$env:CR_CONFIG="UAT"; npx playwright test servicenow_tdr/riskmanagement.spec.ts --project=TDR --headed --workers=1
+$env:CR_CONFIG="UAT"; $env:RELEASE_VERSION="2026.07.00"; npx playwright test ctasks.spec.ts --project=TDR --headed --workers=1
 
 # By config name — multiple in parallel
-$env:CR_CONFIG="UAT,QA"; npx playwright test servicenow_tdr/riskmanagement.spec.ts --project=TDR --headed --workers=2
+$env:CR_CONFIG="UAT,QA"; $env:RELEASE_VERSION="2026.07.00"; npx playwright test ctasks.spec.ts --project=TDR --headed --workers=2
 
-# All 3 from registry
-$env:CR_CONFIG="GENERATE_DUMP_PROD,UAT,QA"; npx playwright test servicenow_tdr/riskmanagement.spec.ts --project=TDR --headed --workers=3
+# All 3 configs
+$env:CR_CONFIG="GENERATE_DUMP_PROD,UAT,QA"; $env:RELEASE_VERSION="2026.07.00"; npx playwright test ctasks.spec.ts --project=TDR --headed --workers=3
 
-# By explicit CR number(s)
-$env:CR_NUMBERS="CHG0233029"; npx playwright test servicenow_tdr/riskmanagement.spec.ts --project=TDR --headed --workers=1
-$env:CR_NUMBERS="CHG0233029,CHG0233030,CHG0233031"; npx playwright test servicenow_tdr/riskmanagement.spec.ts --project=TDR --headed --workers=3
-
-# Target a single CR with --grep
-$env:CR_NUMBERS="CHG0233029,CHG0233030"; npx playwright test servicenow_tdr/riskmanagement.spec.ts --project=TDR --headed --workers=1 --grep "CHG0233029"
+# By explicit CR number
+$env:CR_NUMBERS="CHG0233029"; $env:RELEASE_VERSION="2026.07.00"; npx playwright test ctasks.spec.ts --project=TDR --headed --workers=1
 ```
 
----
-
-### Dry run — verify config without opening a browser
+### Run Risk Assessment only (on existing CRs)
 
 ```powershell
-$env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --list
+# By explicit CR number(s)
+$env:CR_NUMBERS="CHG0233029"; npx playwright test riskmanagement.spec.ts --project=TDR --headed --workers=1
+
+# Multiple CRs in parallel
+$env:CR_NUMBERS="CHG0233029,CHG0233030"; npx playwright test riskmanagement.spec.ts --project=TDR --headed --workers=2
+
+# By config name
+$env:CR_CONFIG="UAT,QA"; npx playwright test riskmanagement.spec.ts --project=TDR --headed --workers=2
+
+# All 3 configs from registry
+$env:CR_CONFIG="GENERATE_DUMP_PROD,UAT,QA"; npx playwright test riskmanagement.spec.ts --project=TDR --headed --workers=3
 ```
-
-Prints all test names in execution order. No browser is opened. Use this to confirm the YAML is valid before a real run.
-
----
 
 ### View HTML report
 
@@ -467,22 +405,20 @@ GENERATE_DUMP_PROD → UAT → QA
 
 ### Files committed to Git
 
-| File | Location | Purpose | Edit frequency |
-|---|---|---|---|
-| `tdr_release_schedule.yaml` | `tests/servicenow_tdr/` | Anchor dates + `buildVersion` per release. **Only file you update each sprint.** | Every sprint |
-| `testDataConfig_TDR.ts` | `tests/servicenow_tdr/` | All test data, date calculations, CR text, CTask config, registry helpers | Rarely |
-| `changeRequest.spec.ts` | `tests/servicenow_tdr/` | Creates Change Requests in ServiceNow (3 configs, 11-step flow each) | Rarely |
-| `ctasks.spec.ts` | `tests/servicenow_tdr/` | Adds CTasks to existing CRs; supports all 3 input modes (config, number, legacy) | Rarely |
-| `riskmanagement.spec.ts` | `tests/servicenow_tdr/` | Fills Risk Assessment form and clicks "Submit for Assess" | Rarely |
-| `tdr_flow.html` | `tests/servicenow_tdr/` | Interactive HTML flow diagram — open in any browser | Never |
-| `README.md` | `tests/servicenow_tdr/` | This file | As needed |
-| `sso_setup.ts` | `tests/` | SSO login via PingID — saves `auth_servicenow.json` (shared with CRE) | Never |
-| `helpers.ts` | `tests/` | Shared Playwright helper functions used by all specs | Rarely |
-| `playwright.config.ts` | repo root | Browser channel, workers, reporters, baseURL, project definitions | Never |
-| `package.json` | repo root | Node.js dependencies and `npm run` scripts | Rarely |
-| `tsconfig.json` | repo root | TypeScript compiler settings (ES2020, CommonJS, strict: false) | Never |
-| `.env.example` | repo root | Credential template — safe to commit; never put real values in it | Rarely |
-| `.gitignore` | repo root | Excludes `.env`, `auth_servicenow.json`, reports, `node_modules`, registry | Never |
+| File | Purpose | Edit frequency |
+|---|---|---|
+| `tdr_release_schedule.yaml` | Anchor dates + `buildVersion` per release. **Only file you update each sprint.** | Every sprint |
+| `testDataConfig_TDR.ts` | All test data, date calculations, CR text, CTask config, registry helpers | Rarely |
+| `changeRequest.spec.ts` | Creates Change Requests in ServiceNow (3 configs, 11-step flow each) |  Rarely |
+| `helpers.ts` | Shared Playwright helper functions used by all specs | Rarely |
+| `sso_setup.ts` | SSO login via PingID — saves `auth_servicenow.json` | Never |
+| `tdr_flow.html` | Interactive HTML flow diagram — open in any browser | Never |
+| `README.md` | This file | As needed |
+| `playwright.config.ts` | Browser channel, workers, reporters, baseURL, project definitions | Never |
+| `package.json` | Node.js dependencies | Rarely |
+| `tsconfig.json` | TypeScript compiler settings (ES2020, CommonJS, strict: false) | Never |
+| `.env.example` | Credential template — safe to commit; never put real values in it | Rarely |
+| `.gitignore` | Excludes `.env`, `auth_servicenow.json`, reports, `node_modules`, registry | Never |
 
 ### Files NOT committed to Git (local only)
 
@@ -516,44 +452,11 @@ GENERATE_DUMP_PROD → UAT → QA
 
 ---
 
-**`❌ RELEASE_VERSION env var is required`**
-
-```powershell
-$env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts ...
-```
-
-The variable must be set in the same terminal session as the test command.
-
----
-
-**`❌ tdr_release_schedule.yaml failed validation`**
-
-A field has the wrong format or is missing. The error shows the exact path, e.g.:
-```
-• [releases.2026.06.00.generateDumpProd] Date must be DD-MM-YYYY
-```
-Fix the value in `tdr_release_schedule.yaml` and re-run. Common mistakes: wrong separator (use `-`, not `/`), wrong order (must be `DD-MM-YYYY`, not `YYYY-MM-DD`).
-
----
-
-**`❌ No schedule entry for release "2026.07.00"`**
-
-Add a new block to `tdr_release_schedule.yaml`:
-```yaml
-"2026.07.00":
-  buildVersion:     "Build#0"
-  generateDumpProd: "10-08-2026"
-  uatDataRefresh:   "14-08-2026"
-  qaDataRefresh:    "22-08-2026"
-```
-
----
-
 **`auth_servicenow.json` is missing or stale (redirected to SSO login)**
 
-Re-run SSO setup from the repo root:
+Re-run SSO setup from `playwright_scripts\servicenow_tdr\`:
 ```powershell
-npx playwright test tests/sso_setup.ts --project=setup --headed
+npx playwright test sso_setup.ts --project=setup --headed
 ```
 Approve the PingID push notification. The session lasts ~8 hours.
 
@@ -621,7 +524,7 @@ npm install
 
 **TypeScript errors on `npx playwright test`**
 
-Playwright compiles TypeScript on the fly via `ts-jest`. If you see compilation errors:
+Playwright compiles TypeScript on the fly. If you see compilation errors:
 1. Confirm `node --version` is >= 18.
 2. Run `npm install` again — a missing `@types/node` or `typescript` package causes most TS errors.
 3. Check `tsconfig.json` — the target is `ES2020` and module is `commonjs`.
@@ -633,23 +536,21 @@ Playwright compiles TypeScript on the fly via `ts-jest`. If you see compilation 
 ### What belongs in the repository
 
 ```
-playwright_servicenow/
+playwright_scripts/servicenow_tdr/
 ├── playwright.config.ts
 ├── package.json
 ├── tsconfig.json
-├── .env.example                          ← credential template — NOT .env
+├── .env.example              ← credential template — NOT .env
 ├── .gitignore
-└── tests/
-    ├── sso_setup.ts
-    ├── helpers.ts
-    └── servicenow_tdr/
-        ├── changeRequest.spec.ts
-        ├── ctasks.spec.ts
-        ├── riskmanagement.spec.ts
-        ├── testDataConfig_TDR.ts
-        ├── tdr_release_schedule.yaml
-        ├── tdr_flow.html
-        └── README.md
+├── sso_setup.ts
+├── helpers.ts
+├── changeRequest.spec.ts
+├── ctasks.spec.ts
+├── riskmanagement.spec.ts
+├── testDataConfig_TDR.ts
+├── tdr_release_schedule.yaml
+├── tdr_flow.html
+└── README.md
 ```
 
 ### What must NEVER be committed
@@ -673,7 +574,7 @@ All of the above are already covered by `.gitignore`. To verify your `.gitignore
 **1. Create a feature branch**
 
 ```powershell
-git checkout -b feature/tdr-2026.06.00-servicenow-cr-automation
+git checkout -b feature/tdr-servicenow-cr-automation
 ```
 
 Use a descriptive name. Never commit directly to `main` or `master`.
@@ -697,35 +598,27 @@ git check-ignore -v auth_servicenow.json
 Both should print a line starting with `.gitignore:` — confirming they are excluded.  
 If either command prints nothing, add the file name to `.gitignore` immediately.
 
-**4. Run the dry run to confirm the YAML is valid**
-
-```powershell
-$env:RELEASE_VERSION="2026.06.00"; npx playwright test servicenow_tdr/changeRequest.spec.ts --project=TDR --list
-```
-
-Should print all 3 test names without errors. Fix any YAML validation errors before staging.
-
-**5. Check for accidental `test.only`**
+**4. Check for accidental `test.only`**
 
 ```powershell
 # PowerShell — search for .only in all spec files
-Select-String -Path "tests\**\*.spec.ts" -Pattern "\.only\(" -Recurse
+Select-String -Path "*.spec.ts" -Pattern "\.only\("
 ```
 
 If any match is found, remove the `.only` before committing.
 
-**6. Stage your changes**
+**5. Stage your changes**
 
 ```powershell
 # Stage everything (safe — .gitignore protects secrets)
 git add .
 
 # Or stage only the files you changed
-git add tests/servicenow_tdr/tdr_release_schedule.yaml
-git add tests/servicenow_tdr/testDataConfig_TDR.ts
+git add tdr_release_schedule.yaml
+git add testDataConfig_TDR.ts
 ```
 
-**7. Confirm what is staged**
+**6. Confirm what is staged**
 
 ```powershell
 git diff --staged --name-only
@@ -733,7 +626,7 @@ git diff --staged --name-only
 
 Read the list carefully. `.env` and `auth_servicenow.json` must NOT appear.
 
-**8. Commit with a descriptive message**
+**7. Commit with a descriptive message**
 
 ```powershell
 # Updating release dates only
@@ -746,13 +639,13 @@ git commit -m "TDR: add Oracle CTask for GENERATE_DUMP_PROD config"
 git commit -m "TDR: add 2026.07.00 schedule; fix UAT CTask end date calculation"
 ```
 
-**9. Push to your branch**
+**8. Push to your branch**
 
 ```powershell
 git push origin feature/tdr-2026.06.00-servicenow-cr-automation
 ```
 
-**10. Open a Pull Request**
+**9. Open a Pull Request**
 
 Go to the repository on GitHub, click **Compare & pull request**, fill in the description, and assign a reviewer.
 
@@ -783,10 +676,7 @@ PROD dump must run before UAT (UAT needs the dump files). UAT must run before QA
 **3. Show the flow diagram**
 Open tdr_flow.html in a browser. Walk through the three sequential config blocks and the shared 11-step per-config flow.
 
-**4. Run a dry run live**
-`--list` flag shows all 3 test names in the correct order. Good confidence check before the demo.
-
-**5. Run GENERATE_DUMP_PROD only**
+**4. Run GENERATE_DUMP_PROD only**
 Use `--grep "\[GENERATE_DUMP_PROD\]"` for a focused demo — shows the full 11-step flow for one config.
 
 **6. Show the HTML report**
